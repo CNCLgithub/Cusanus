@@ -1,0 +1,12 @@
+pyaml
+pandas
+numba
+scipy
+sqlalchemy
+opencv-python-headless
+--extra-index-url https://download.pytorch.org/whl/cu113
+torch
+torchvision
+ffcv
+pytorch-lightning
+-e .

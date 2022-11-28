@@ -1,0 +1,25 @@
+arch: 'BetaVAE'
+
+arch_params:
+  sym_dim: 20
+  latent_dim: 256
+  beta: 0.0001
+
+path_params:
+  train_path: "/spaths/datasets/pilot"
+  test_path: "/spaths/datasets/pilot_test"
+
+loader_params:
+  batch_size: 32
+  num_workers: 4
+
+exp_params:
+  lr: 0.0001
+  weight_decay: 0.0
+  sched_gamma: 0.9
+
+trainer_params:
+  max_epochs: 10
+
+logging_params:
+  save_dir: "/spaths/checkpoints"
