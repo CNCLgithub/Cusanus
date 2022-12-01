@@ -77,11 +77,12 @@ class SirenNet(nn.Module):
 class Modulator(nn.Module):
     def __init__(self, dim_in: int, dim_hidden:int , depth: int):
         super().__init__()
+        self.depth = depth
         self.layers = nn.ModuleList([])
         for ind in range(depth):
             is_first = ind == 0
+            # for skip connection
             dim = dim_in if is_first else (dim_hidden + dim_in)
-
             self.layers.append(nn.Sequential(
                 nn.Linear(dim, dim_hidden),
                 nn.ReLU()
@@ -90,29 +91,38 @@ class Modulator(nn.Module):
     def forward(self, z:Tensor):
         x = z
         hiddens = []
-        for layer in self.layers:
-            x = layer(x)
+        for l in range(self.depth - 1):
+            x = self.layers[l](x)
             hiddens.append(x)
-            # TODO: remove extra cat for last step
             x = torch.cat((x, z), dim = -1)
-
+        #
+        # last layer returns output of `dim_hidden`
+        x = self.layers[-1](x)
+        hiddens.append(x)
         return hiddens
 
 class ImplicitNeuralModule(nn.Module):
+    """ Implicit Neural Module
+
+    Arguments:
+        q_in: int, query dimension
+        out: int, output dimensions
+        hidden: int = 256, hidden dimensions (for theta and psi)
+        depth: int = 5, depth of theta and modulator
+    """
 
     def __init__(self,
-                 theta_input: int,
-                 theta_out: int,
-                 theta_hidden: int = 256,
-                 depth: int = 5):
+                 q_in: int,
+                 out: int,
+                 hidden: int = 256,
+                 depth: int = 5) -> None:
         super().__init__()
-        self.theta = SirenNet(theta_input, theta_hidden, theta_out, depth)
-        self.psi = Modulator(theta_hidden, theta_hidden, depth)
+        self.theta = SirenNet(q_in, hidden, out, depth)
+        self.psi = Modulator(hidden, hidden, depth)
 
-    def forward(self, qs:Tensor, xs:Tensor):
-        # TODO: generalize chunking `xs` to different sizes?
-        es, ks = torch.chunk(xs, 2, dim = 1)
-        # ks = rearrange([qs, ks], '2 b d -> b (2 d)')
-        ks = torch.cat((qs, ks), dim = 1)
-        phi = self.psi(es)
-        return self.theta(ks, phi)
+    def modulate(self, z:Tensor) -> Tensor:
+        return self.psi(z)
+
+    def forward(self, qs:Tensor, z:Tensor) -> Tensor:
+        phi = self.modulate(es)
+        return self.theta(qs, phi)

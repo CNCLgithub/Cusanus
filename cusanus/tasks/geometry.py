@@ -6,68 +6,99 @@ import torchvision.utils as vutils
 from ensembles.pytypes import *
 from ensembles.archs.inm import ImplicitNeuralModule
 
-class Geometry(ImplicitNeuralDistribution):
-    """Task of occupancy probability"""
+class OccupancyField(pl.LightningModule):
+    """Implements an occupancy field distribution
+
+    Arguments:
+        inr: ImplicitNeuralModule, INR architecture
+        lr: float = 0.001, learning rate
+        weight_decay: float = 0.001
+        sched_gamma: float = 0.8
+    """
 
     def __init__(self,
-               module: ImplicitNeuralModule) -> None:
-        super(Geometry, self).__init__()
-        self.module = module
+                 inr: ImplicitNeuralModule,
+                 lr:float = 0.001,
+                 weight_decay:float = 0.001,
+                 sched_gamma:float = 0.8) -> None:
+        super().__init__()
+        self.inr = inr
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.sched_gamma = sched_gamma
 
-    def forward(self, qs: Tensor, zg: Tensor) -> Tensor:
-        return self.module(qs, zg)
+    # TODO
+    def batch_forward(self, qs: Tensor, zs: Tensor) -> Tensor:
+        """ Applies each z in zs to each q in qs """
+        # (nz) -> (b nz)
+        bqs = qs.tile((zs.shape[0], 1))
+        bzs = zs.tile((qs.shape[0], 1))
+        # Need to decibe whether to broadcast all calls in a single batch
+        # or iterate across zs
+        pass
+
+    def run_model(self, qs: Tensor, z: Tensor) -> Tensor:
+        return self.inr(qs, z)
+
+    def inner_loop(self, qs: Tensor, ys: Tensor):
+        m = self.initialize_modulation()
+        m.train()
+        inner_opt = self.initiliaze_inner_opt(m)
+        for _ in range(self.hparams.num_inner_steps):
+            pred_ys = self.run_model(qs, m)
+            loss = self.inner_loss(ys, pred_ys)
+            # Update modulator via SGD
+            loss.backward()
+            inner_opt.step()
+            inner_opt.zero_grad()
+
+        return m, loss
+
+    def outer_loop(self, batch, mode="train"):
+        accuracies = []
+        losses = []
+
+        # each trial in the batch is a group of queries
+        qs, ys = batch
+        # fitting modulations for current generation
+        ms, ls = vmap(inner_loop)(qs, ys)
+        loss = ls.mean() # average across batch
+        # Update theta
+        self.outer_opt.zero_grad()
+        loss.backward()
+        self.outer_optim.step()
+        self.outer_optim.zero_grad()
+        return ms, loss
+
+    def inner_loss(self, pred_ys: Tensor, ys: Tensor):
+        return F.mse_loss(pred_ys, ys)
 
     def training_step(self, batch, batch_idx, optimizer_idx = 0):
-        sym_vector, real_gs = batch
-        pred_gs = self.forward(sym_vector)
-        train_loss = self.decoder.loss_function(pred_gs,
-                                                real_gs,
-                                                optimizer_idx=optimizer_idx,
-                                                batch_idx = batch_idx)
+        _, train_loss = self.outer_loop(batch, mode = "train")
+        self.log_dict({'loss' : train_loss.item()}, sync_dist=True)
+        return train_loss
 
-        self.log_dict({key: val.item() for key, val in train_loss.items()},
-                      sync_dist=True)
-
-        return train_loss['loss']
-
+    # TODO
     def validation_step(self, batch, batch_idx, optimizer_idx = 0):
-        sym_vector, real_gs = batch
-        pred_gs = self.forward(sym_vector)
-        # print(f"pimport torch
-        # print(f"ground truth shape {real_og.shape}")
-        # print(f"prediction max {pred_og.max()}")
-        # print(f"ground truth max {real_og.max()}")
-        val_loss = self.decoder.loss_function(pred_gs,
-                                              real_gs,
-                                              optimizer_idx=optimizer_idx,
-                                              batch_idx = batch_idx)
-       	results = pred_gs.unsqueeze(1)
-        vutils.save_image(results.data,
-                          os.path.join(self.logger.log_dir ,
-                                       "reconstructions",
-                                       f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-                          normalize=False,
-                          nrow=6)
-        vutils.save_image(real_gs.unsqueeze(1).data,
-                          os.path.join(self.logger.log_dir ,
-                                       "reconstructions",
-                                       f"gt_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-                          normalize=False,
-                          nrow=6)
-        self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
-        self.sample_gs(sym_vector.device)
-
-
-    def sample_gs(self, device):
-        samples = self.decoder.sample(25,
-                                    device).unsqueeze(1)
-        sdata = samples.cpu().data
-        vutils.save_image(sdata ,
-                        os.path.join(self.logger.log_dir ,
-                                        "samples",
-                                        f"{self.logger.name}_Epoch_{self.current_epoch}.png"),
-                        normalize=False,
-                        nrow=5)
+        # val_loss = self.decoder.loss_function(pred_gs,
+        #                                       real_gs,
+        #                                       optimizer_idx=optimizer_idx,
+        #                                       batch_idx = batch_idx)
+        #     results = pred_gs.unsqueeze(1)
+        # vutils.save_image(results.data,
+        #                   os.path.join(self.logger.log_dir ,
+        #                                "reconstructions",
+        #                                f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
+        #                   normalize=False,
+        #                   nrow=6)
+        # vutils.save_image(real_gs.unsqueeze(1).data,
+        #                   os.path.join(self.logger.log_dir ,
+        #                                "reconstructions",
+        #                                f"gt_{self.logger.name}_Epoch_{self.current_epoch}.png"),
+        #                   normalize=False,
+        #                   nrow=6)
+        # self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
+        pass
 
 
     def configure_optimizers(self):
