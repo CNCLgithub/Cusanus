@@ -1,51 +1,44 @@
 import os
 import yaml
 import torch
-import argparse
 import numpy as np
 from pathlib import Path
+from copy import deepcopy
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
 
-from ensembles.archs import BetaVAE
-from ensembles.tasks.sym_embedding import SymEmbedding
-from ensembles.datasets import sym_emb_loader
+from cusanus.archs import ImplicitNeuralModule
+from cusanus.tasks import OccupancyField
+from cusanus.datasets import SphericalGeometryDataset
 
-archs = {
-    'BetaVAE' : BetaVAE,
-    # 'Decoder' : Decoder,
-}
+
+task_name = 'occupancy_field'
+dataset_name = 'spherical_geometry'
 
 def main():
-    parser = argparse.ArgumentParser(description='Generic runner for VAE models')
-    parser.add_argument('--config', type = str, default = 'sym_emb',
-                        help =  'path to the config file')
-
-    args = parser.parse_args()
-    with open(f"/project/scripts/configs/{args.config}.yaml", 'r') as file:
+    with open(f"/project/scripts/configs/{task_name}.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
-    arch_name = config['arch']
     logger = CSVLogger(save_dir=config['logging_params']['save_dir'],
-                       name= f'sym-emb_{arch_name}')
+                       name= f"occupancy_field-{dataset_name}")
 
     # For reproducibility
-    seed_everything(12345, True)
+    seed_everything(config['manual_seed'], True)
 
-    arch = archs[arch_name](**config['arch_params'])
+    # initialize networks and task
+    arch = ImplicitNeuralModule(**config['arch_params'])
     arch.train()
-    task = SymEmbedding(arch,  **config['exp_params'])
-    loader = sym_emb_loader
-
+    task = OccupancyField(arch, **config['task_params'])
 
     runner = Trainer(logger=logger,
                      callbacks=[
                          LearningRateMonitor(),
-                         ModelCheckpoint(save_top_k=2,
-                                         dirpath =os.path.join(logger.log_dir , "checkpoints"),
+                         ModelCheckpoint(save_top_k = 5,
+                                         dirpath = os.path.join(logger.log_dir ,
+                                                                "checkpoints"),
                                          monitor= "val_loss",
                                          save_last=True),
                      ],
@@ -55,12 +48,23 @@ def main():
 
     device = runner.device_ids[0] if torch.cuda.is_available() else None
 
-    train_loader = loader(config['path_params']['train_path'],
-                          device,
+    # CONFIGURE FFCC DATA LOADERS
+    #
+    # add to gpu device for ffcv loader if possible
+    pipelines = deepcopy(SphericalGeometryDataset.pipelines)
+    if not device is None:
+        pipelines.append(ToDevice(device))
+
+    dpath_train = "/spaths/datasets/{dataset_name}_train.beton"
+    train_loader = Loader(dpath_train,
+                          pipelines = pipelines,
                           **config['loader_params'])
-    test_loader = loader(config['path_params']['test_path'],
-                         device,
+    dpath_test = "/spaths/datasets/{dataset_name}_test.beton"
+    test_loader = Loader(dpath-test,
+                         pipelines = pipelines,
                          **config['loader_params'])
+
+    # BEGIN TRAINING
 
     Path(f"{logger.log_dir}/samples").mkdir(exist_ok=True, parents=True)
     Path(f"{logger.log_dir}/reconstructions").mkdir(exist_ok=True, parents=True)

@@ -71,11 +71,20 @@ class SirenNet(nn.Module):
     def forward(self, x:Tensor, phi:Tensor):
         for i in range(self.depth):
             x = self.layers[i](x)
-            x *= phi[i]
+            x += phi[i]
         return self.last_layer(x)
 
+class LatentModulation(nn.Module):
+
+    def __init__(self, dim: int):
+        super().__init__()
+        self.latent_code = nn.Parameter(data = torch.zeros(dim))
+
+    def forward(self):
+        return self.latent_code()
+
 class Modulator(nn.Module):
-    def __init__(self, dim_in: int, dim_hidden:int , depth: int):
+    def __init__(self, dim_in: int, dim_hidden:int, depth: int):
         super().__init__()
         self.depth = depth
         self.layers = nn.ModuleList([])
@@ -88,12 +97,16 @@ class Modulator(nn.Module):
                 nn.ReLU()
             ))
 
-    def forward(self, z:Tensor):
-        x = z
+    def forward(self, m: LatentModulator):
+        z = m() # retrieve latent code
+        x = z # set as first input
         hiddens = []
         for l in range(self.depth - 1):
+            # pass through next layer in modulator
             x = self.layers[l](x)
+            # save layer output
             hiddens.append(x)
+            # concat with latent code for next step
             x = torch.cat((x, z), dim = -1)
         #
         # last layer returns output of `dim_hidden`
@@ -108,21 +121,24 @@ class ImplicitNeuralModule(nn.Module):
         q_in: int, query dimension
         out: int, output dimensions
         hidden: int = 256, hidden dimensions (for theta and psi)
-        depth: int = 5, depth of theta and modulator
+        depth: int = 5, depth of theta, modulator is `depth` - 1
     """
 
     def __init__(self,
-                 q_in: int,
-                 out: int,
+                 q_in: int = 1,
+                 out: int = 1,
                  hidden: int = 256,
                  depth: int = 5) -> None:
         super().__init__()
+        self.hidden = hidden
+        # Siren Network - weights refered to as `theta`
+        # optimized during outer loop
         self.theta = SirenNet(q_in, hidden, out, depth)
-        self.psi = Modulator(hidden, hidden, depth)
+        # Modulation FC network - refered to as psi
+        # psi is initialize with default weights
+        # and is not optimized
+        self.psi = Modulator(hidden, hidden, depth - 1)
 
-    def modulate(self, z:Tensor) -> Tensor:
-        return self.psi(z)
-
-    def forward(self, qs:Tensor, z:Tensor) -> Tensor:
-        phi = self.modulate(es)
+    def forward(self, qs:Tensor, m:LatentModulation) -> Tensor:
+        phi = self.psi(m) # shift modulations
         return self.theta(qs, phi)
