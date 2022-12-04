@@ -3,23 +3,23 @@ manual_seed: 1234
 arch_params:
     q_in: 3
     out: 1
-    hidden: 256
+    hidden: 128
     depth: 5
 
 task_params:
     inner_steps: 5
-    lr: 0.001
+    lr: 0.0001
     weight_decay: 0.0
-    sched_gamma: 0.8
-    lr_inner: 0.001
+    sched_gamma: 0.9
+    lr_inner: 0.0001
 
 data_params:
   train_path: "/spaths/datasets/spherical_geo_train.beton"
   test_path: "/spaths/datasets/spherical_geo_test.beton"
 
 loader_params:
-  batch_size: 36
-  num_workers: 4
+  batch_size: 128
+  num_workers: 8
 
 trainer_params:
   max_epochs: 10

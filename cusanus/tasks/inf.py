@@ -1,11 +1,12 @@
 import os
 import torch
 import torchopt
+import functools
 from torch import optim
 from torch.nn.functional import mse_loss
 import pytorch_lightning as pl
 # import torchvision.utils as vutils
-from functorch import vmap, make_functional, grad_and_value
+from functorch import vmap, make_functional_with_buffers, grad
 
 from cusanus.pytypes import *
 from cusanus.archs import ImplicitNeuralModule, LatentModulation
@@ -30,13 +31,9 @@ class ImplicitNeuralField(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore = 'inr')
         self.inr = inr
-        # (tfunc, tparams) = make_functional(inr.theta,
-        #                                    disable_autograd_tracking = True)
+        # (tfunc, tparams) = make_functional_with_buffers(inr.theta)
         # self.tfunc = tfunc
         # self.tparms = tparams
-        # self.lr = lr
-        # self.weight_decay = weight_decay
-        # self.sched_gamma = sched_gamma
 
     def initialize_modulation(self):
         m = LatentModulation(self.inr.hidden)
@@ -45,71 +42,57 @@ class ImplicitNeuralField(pl.LightningModule):
         return make_functional(m)
 
     def initialize_inner_opt(self, mparams):
-        optim = torchopt.sgd(self.hparams.lr_inner)
-        opt_state = optim.init(mparams)
-        return (optim, opt_state)
-
-    def inner_loss(self, pred_ys : Tensor, ys : Tensor):
-    # def inner_loss(self, mparams, qs: Tensor, ys: Tensor):
-        # pred_ys = self.inr(qs, mparams)
-        return mse_loss(pred_ys, ys)
-
-    def inner_loop(self, qs : Tensor, ys : Tensor):
-        m, mparams = self.initialize_modulation()
-        inner_opt, inner_state = self.initialize_inner_opt(m)
-        for _ in range(self.hparams.inner_steps):
-            pred_ys = self.inr(qs, m(mparams))
-            loss = mse_loss(pred_ys, ys)
-            # grad, loss = grad_and_value(self.inner_loss)(pred_ys, ys)
-            print(ys)
-            print(loss)
-            print(mparams)
-            grad = torch.autograd.grad(loss, mparams)
-            updates, inner_state = inner_opt.update(grad, inner_state)
-            mparams = torchopt.apply_updates(mparams, updates)
-
-        return (mparams, loss)
-
-    def outer_loop(self, batch):
-        # each trial in the batch is a group of queries and outputs
-        qs, ys = batch
-        # fitting modulations for current generation
-        ms, ls = vmap(self.inner_loop)(qs, ys)
-        loss = ls.mean() # average across batch
-        return ms, loss
+        lr = self.hparams.lr_inner
+        optim = torchopt.FuncOptimizer(torchopt.sgd(lr))
+        return optim
+        # optim = torchopt.sgd(lr)
+        # opt_state = optim.init(mparams)
+        # return (optim, opt_state)
 
     def training_step(self, batch, batch_idx, optimizer_idx = 0):
+        # each task in the batch is a group of queries and outputs
+        qs, ys = batch
+        # Fitting modulations for current generation
+        # In parallel, trains one mod per task.
+        outer_opt = self.optimizers()
+        outer_opt.zero_grad()
+        vloss = functools.partial(inner_modulation_loop,
+                                  self)
         # fit modulations on batch - returns averaged loss
-        _, loss = self.outer_loop(batch)
+        # Compute the maml loss by summing together the returned losses.
+        mod_losses = torch.mean(vmap(vloss)(qs, ys))
         # Update theta
-        self.log_dict({'loss' : loss.item()}, sync_dist=True)
-        return loss
-        # return None  # skip the default optimizer steps by PyTorch Lightning
+        mod_losses.backward()
+        outer_opt.step()
+        self.log_dict({'loss' : mod_losses.item()}, sync_dist=True)
+        torch.cuda.empty_cache()
+        return None  # skip the default optimizer steps by PyTorch Lightning
 
-    def validation_step(self, batch, batch_idx, optimizer_idx = 0):
-        ms, loss = self.outer_loop(batch)
-        self.log_dict({'val_loss' : loss.item()}, sync_dist = True)
-        # TODO: add visualization
-        #
-        # val_loss = self.decoder.loss_function(pred_gs,
-        #                                       real_gs,
-        #                                       optimizer_idx=optimizer_idx,
-        #                                       batch_idx = batch_idx)
-        #     results = pred_gs.unsqueeze(1)
-        # vutils.save_image(results.data,
-        #                   os.path.join(self.logger.log_dir ,
-        #                                "reconstructions",
-        #                                f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-        #                   normalize=False,
-        #                   nrow=6)
-        # vutils.save_image(real_gs.unsqueeze(1).data,
-        #                   os.path.join(self.logger.log_dir ,
-        #                                "reconstructions",
-        #                                f"gt_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-        #                   normalize=False,
-        #                   nrow=6)
-        # self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
-        return loss
+    # def validation_step(self, batch, batch_idx, optimizer_idx = 0):
+    #     self.inr.train()
+    #     ms, loss = self.outer_loop(batch)
+    #     self.log_dict({'val_loss' : loss.item()}, sync_dist = True)
+    #     # TODO: add visualization
+    #     #
+    #     # val_loss = self.decoder.loss_function(pred_gs,
+    #     #                                       real_gs,
+    #     #                                       optimizer_idx=optimizer_idx,
+    #     #                                       batch_idx = batch_idx)
+    #     #     results = pred_gs.unsqueeze(1)
+    #     # vutils.save_image(results.data,
+    #     #                   os.path.join(self.logger.log_dir ,
+    #     #                                "reconstructions",
+    #     #                                f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
+    #     #                   normalize=False,
+    #     #                   nrow=6)
+    #     # vutils.save_image(real_gs.unsqueeze(1).data,
+    #     #                   os.path.join(self.logger.log_dir ,
+    #     #                                "reconstructions",
+    #     #                                f"gt_{self.logger.name}_Epoch_{self.current_epoch}.png"),
+    #     #                   normalize=False,
+    #     #                   nrow=6)
+    #     # self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
+    #     return loss
 
 
     def configure_optimizers(self):
@@ -121,3 +104,45 @@ class ImplicitNeuralField(pl.LightningModule):
         scheduler = optim.lr_scheduler.ExponentialLR(optimizer,
                                                      gamma = gamma)
         return [optimizer], [scheduler]
+
+
+# https://github.com/metaopt/torchopt/blob/main/examples/FuncTorch/maml_omniglot_vmap.py
+# borrowed from above
+def fit_modulation(exp, qs: Tensor, ys: Tensor):
+
+    m = LatentModulation(exp.inr.hidden)
+    m.to(exp.device)
+    m.train()
+    (mfunc, mparams, mbuffers) = make_functional_with_buffers(m)
+
+    # init inner loop optimizer
+    lr = exp.hparams.lr_inner
+    opt = torchopt.sgd(lr=lr)
+    opt_state = opt.init(mparams)
+
+    def compute_loss(mparams, qs, ys):
+        mod = mfunc(mparams, mbuffers)
+        # pred_ys = tfunc(tparams, tbuffers, qs, mod)
+        pred_ys = exp.inr(qs, mod)
+        loss = mse_loss(pred_ys, ys)
+        return loss
+
+    new_mparams = mparams
+    for _ in range(exp.hparams.inner_steps):
+        grads = grad(compute_loss)(new_mparams, qs, ys)
+        updates, opt_state = opt.update(grads, opt_state, inplace=False)
+        new_mparams = torchopt.apply_updates(new_mparams, updates, inplace=False)
+
+    return (mfunc, new_mparams, mbuffers)
+
+def inner_modulation_loop(exp, qs: Tensor, ys: Tensor):
+    m = fit_modulation(exp, qs, ys)
+    # (tfunc, tparams, tbuffers) = t
+    (mfunc, mparams, mbuffers) = m
+    mod = mfunc(mparams, mbuffers)
+    # The final set of adapted parameters will induce some
+    # final loss and accuracy on the query dataset.
+    # These will be used to update the model's meta-parameters.
+    pred_ys = exp.inr(qs, mod)
+    loss = mse_loss(pred_ys, ys)
+    return loss

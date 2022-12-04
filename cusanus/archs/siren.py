@@ -45,7 +45,7 @@ class SirenNet(nn.Module):
                  w0 = 1.,
                  w0_initial = 30.,
                  c = 6.0,
-                 use_bias = True, final_activation = False):
+                 use_bias = True, final_activation = True):
         super().__init__()
         self.depth = depth
         self.layers = nn.ModuleList([])
@@ -59,8 +59,10 @@ class SirenNet(nn.Module):
                 bias = use_bias,
             )
             self.layers.append(layer)
-        self.last_layer = Siren(dim_in = theta_hidden, dim_out = theta_out, w0 = w0,
-                                bias = use_bias, activation = final_activation)
+        self.last_layer = nn.Sequential(
+            Siren(dim_in = theta_hidden, dim_out = theta_out, w0 = w0,
+                  bias = use_bias, activation = final_activation),
+            nn.Sigmoid())
 
     def forward(self, x:Tensor, phi:Tensor):
         for l in range(self.depth - 1):
