@@ -91,9 +91,9 @@ class Modulator(nn.Module):
                 nn.ReLU()
             ))
 
-    def forward(self, m: LatentModulation):
-        z = m() # retrieve latent code
-        x = z # set as first input
+    def forward(self, m):
+        # z = m() # retrieve latent code
+        x = m # set as first input
         hiddens = []
         for l in range(self.depth - 1):
             # pass through next layer in modulator
@@ -101,7 +101,7 @@ class Modulator(nn.Module):
             # save layer output
             hiddens.append(x)
             # concat with latent code for next step
-            x = torch.cat((x, z), dim = -1)
+            x = torch.cat((x, m), dim = -1)
         #
         # last layer returns output of `dim_hidden`
         x = self.layers[-1](x)
@@ -133,6 +133,6 @@ class ImplicitNeuralModule(nn.Module):
         # and is not optimized
         self.psi = Modulator(hidden, hidden, depth - 1)
 
-    def forward(self, qs:Tensor, m:LatentModulation) -> Tensor:
+    def forward(self, qs:Tensor, m) -> Tensor:
         phi = self.psi(m) # shift modulations
         return self.theta(qs, phi)

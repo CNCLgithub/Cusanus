@@ -7,6 +7,7 @@ opencv-python-headless
 --extra-index-url https://download.pytorch.org/whl/cu113
 torch
 torchvision
+torchopt
 ffcv
 pytorch-lightning
 -e .

@@ -49,6 +49,8 @@ def main():
                      **config['trainer_params'])
 
     device = runner.device_ids[0] if torch.cuda.is_available() else None
+    arch.to(device)
+    task.to(device)
 
     # CONFIGURE FFCC DATA LOADERS
     #
