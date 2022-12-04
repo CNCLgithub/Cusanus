@@ -7,7 +7,7 @@ import torch.nn.functional as F
 # from einops import rearrange
 # from siren_pytorch import SirenNet, SirenWrapper
 
-from ensembles.pytypes import *
+from cusanus.pytypes import *
 
 class Sine(nn.Module):
     def __init__(self, w0 = 1.):
@@ -49,29 +49,23 @@ class SirenNet(nn.Module):
         super().__init__()
         self.depth = depth
         self.layers = nn.ModuleList([])
-        self.layers.append(Siren(
-            dim_in = theta_in,
-            dim_out = theta_hidden,
-            w0 = w0_initial,
-            w_std = 1.0 / theta_in,
-            bias = use_bias,
-        ))
         w_std = math.sqrt(c / theta_hidden) / w0
-        for _ in range(depth - 1):
-            self.layers.append(Siren(
-                dim_in = theta_hidden,
+        for l in range(depth - 1):
+            layer = Siren(
+                dim_in = theta_in if l == 0 else theta_hidden,
                 dim_out = theta_hidden,
-                w0 = w0,
-                w_std = w_std,
+                w0 = w0_initial if l == 0 else w0,
+                w_std = 1.0 / theta_in if l == 0 else w_std,
                 bias = use_bias,
-            ))
+            )
+            self.layers.append(layer)
         self.last_layer = Siren(dim_in = theta_hidden, dim_out = theta_out, w0 = w0,
                                 bias = use_bias, activation = final_activation)
 
     def forward(self, x:Tensor, phi:Tensor):
-        for i in range(self.depth):
-            x = self.layers[i](x)
-            x += phi[i]
+        for l in range(self.depth - 1):
+            x = self.layers[l](x)
+            x += phi[l]
         return self.last_layer(x)
 
 class LatentModulation(nn.Module):
@@ -81,7 +75,7 @@ class LatentModulation(nn.Module):
         self.latent_code = nn.Parameter(data = torch.zeros(dim))
 
     def forward(self):
-        return self.latent_code()
+        return self.latent_code
 
 class Modulator(nn.Module):
     def __init__(self, dim_in: int, dim_hidden:int, depth: int):
@@ -97,7 +91,7 @@ class Modulator(nn.Module):
                 nn.ReLU()
             ))
 
-    def forward(self, m: LatentModulator):
+    def forward(self, m: LatentModulation):
         z = m() # retrieve latent code
         x = z # set as first input
         hiddens = []

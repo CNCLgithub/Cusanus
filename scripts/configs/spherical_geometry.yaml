@@ -1,5 +1,5 @@
 train:
-    n_shapes: 1000
+    n_shapes: 100000
     k_queries: 1000
 
 test:

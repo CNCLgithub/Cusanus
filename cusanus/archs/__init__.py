@@ -1,1 +1,1 @@
-from . siren import ImplicitNeuralModule
+from . siren import ImplicitNeuralModule, LatentModulation

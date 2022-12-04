@@ -7,12 +7,12 @@ from ffcv.fields.decoders import NDArrayDecoder
 from ffcv.transforms import (Convert, NormalizeImage, ToTensor,
     ToDevice)
 
-from ensembles.pytypes import *
+from cusanus.pytypes import *
 
 _pipe = [NDArrayDecoder(),
          ToTensor(),
          Convert(torch.float32)]
-_pipelines = {'qs': pipe, 'ys': pipe}
+_pipelines = {'qs': _pipe, 'ys': _pipe}
 
 class SphericalGeometryDataset(Dataset):
 
@@ -24,7 +24,7 @@ class SphericalGeometryDataset(Dataset):
         self.n_shapes = n_shapes
         self.k_queries = k_queries
         self.r_min = r_min
-        self.r_max = rmax
+        self.r_max = r_max
 
     def __len__(self):
         return self.n_shapes
@@ -36,25 +36,28 @@ class SphericalGeometryDataset(Dataset):
                                high = 1.0,
                                size = (self.k_queries, 3))
         qs = qs.astype(np.float32)
-        ys = spherical_occupancy_field(r, qs)
+        ys = spherical_occupancy_field(radius, qs)
         return (qs, ys)
 
-    def write_ffcv(self, path:str) -> None:
-        kwargs = {
+    def write_ffcv(self, path:str):
+        qshape = (self.k_queries, 3)
+        yshape = (self.k_queries, 1)
+        fields = {
             'qs': NDArrayField(dtype = np.dtype('float32'),
-                               shape = (self.k_queries, 3)),
+                               shape = qshape),
             'ys': NDArrayField(dtype = np.dtype('float32'),
-                               shape = (self.k_queries, 1)),
+                               shape = yshape),
         }
-        writer = DatasetWriter(path, **kwargs)
-        writer.from_indexed_dataset(self)
+        writer = DatasetWriter(path, fields)
+        return writer
+        # writer.from_indexed_dataset(self)
 
-    def ffcv_pipelines(self):
-        pipe = [NDArrayDecoder(),
-                ToTensor(),
-                Convert(torch.float32)]
-        pipelines = {'qs': pipe, 'ys': pipe}
-        return pipelines
+    # def ffcv_pipelines(self):
+    #     pipe = [NDArrayDecoder(),
+    #             ToTensor(),
+    #             Convert(torch.float32)]
+    #     pipelines = {'qs': pipe, 'ys': pipe}
+    #     return pipelines
 
 def spherical_occupancy_field(r: float, qs: np.ndarray):
     bs = r <= np.linalg.norm(qs, axis = 1)

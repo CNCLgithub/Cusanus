@@ -6,7 +6,7 @@ import argparse
 import torch
 import numpy as np
 
-from ensembles.datasets import SphericalGeometryDataset
+from cusanus.datasets import SphericalGeometryDataset
 
 def main():
     parser = argparse.ArgumentParser(
@@ -28,10 +28,13 @@ def main():
     # dataset is procedural so no source file
     dpath = os.path.join('/spaths/datasets', args.dest + '_train.beton')
     d = SphericalGeometryDataset(**config['train'])
-    d.write_ffcv(dpath)
+    w = d.write_ffcv(dpath)
+    w.from_indexed_dataset(d)
     dpath = os.path.join('/spaths/datasets', args.dest + '_test.beton')
     d = SphericalGeometryDataset(**config['test'])
-    d.write_ffcv(dpath)
+    # d.write_ffcv(dpath)
+    w = d.write_ffcv(dpath)
+    w.from_indexed_dataset(d)
 
 if __name__ == '__main__':
     main()

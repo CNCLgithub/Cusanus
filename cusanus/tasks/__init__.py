@@ -1,2 +1,2 @@
 from . inf import ImplicitNeuralField
-from . geometry import Geometry
+from . occupancy_field import OccupancyField

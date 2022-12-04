@@ -1,11 +1,12 @@
 import os
 from torch import optim
+from torch.nn.functional import mse_loss
 import pytorch_lightning as pl
 # import torchvision.utils as vutils
 from functorch import vmap
 
 from cusanus.pytypes import *
-from cusanus.archs import ImplicitNeuralModule
+from cusanus.archs import ImplicitNeuralModule, LatentModulation
 
 class ImplicitNeuralField(pl.LightningModule):
     """Implements a generic task implicit neural fields
@@ -33,7 +34,7 @@ class ImplicitNeuralField(pl.LightningModule):
 
     def initialize_modulation(self):
         m = LatentModulation(self.inr.hidden)
-        m.clear_weights()
+        m.to(self.device)
         return m
 
     def initialize_inner_opt(self, m: LatentModulation):
@@ -43,12 +44,12 @@ class ImplicitNeuralField(pl.LightningModule):
         return local_optim
 
     def inner_loss(self, pred_ys: Tensor, ys: Tensor):
-        return F.mse_loss(pred_ys, ys)
+        return mse_loss(pred_ys, ys)
 
     def inner_loop(self, qs: Tensor, ys: Tensor):
         m = self.initialize_modulation()
         m.train()
-        inner_opt = self.initiliaze_inner_opt(m)
+        inner_opt = self.initialize_inner_opt(m)
         for _ in range(self.hparams.inner_steps):
             pred_ys = self.inr(qs, m)
             loss = self.inner_loss(ys, pred_ys)
@@ -57,7 +58,9 @@ class ImplicitNeuralField(pl.LightningModule):
             inner_opt.step()
             inner_opt.zero_grad()
 
-        return m, loss
+        return m
+
+
 
     def outer_loop(self, batch):
         # each trial in the batch is a group of queries and outputs
@@ -65,7 +68,7 @@ class ImplicitNeuralField(pl.LightningModule):
         # qs = rearrange(qs, 'b k q -> (b k) q')
         # ys = rearrange(ys, 'b k y -> (b k) y')
         # fitting modulations for current generation
-        ms, ls = vmap(inner_loop)(qs, ys)
+        ms, ls = vmap(self.inner_loop)(qs, ys)
         loss = ls.mean() # average across batch
         return ms, loss
 
@@ -112,6 +115,6 @@ class ImplicitNeuralField(pl.LightningModule):
                                lr=self.hparams.lr,
                                weight_decay=self.hparams.weight_decay)
         gamma = self.hparams.sched_gamma
-        scheduler = optim.lr_scheduler.ExponentialLR(optims[0],
+        scheduler = optim.lr_scheduler.ExponentialLR(optimizer,
                                                      gamma = gamma)
         return [optimizer], [scheduler]

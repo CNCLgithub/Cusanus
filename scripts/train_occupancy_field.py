@@ -9,6 +9,8 @@ from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.plugins import DDPPlugin
+from ffcv.loader import Loader
+from ffcv.transforms import ToDevice
 
 from cusanus.archs import ImplicitNeuralModule
 from cusanus.tasks import OccupancyField
@@ -51,21 +53,24 @@ def main():
     # CONFIGURE FFCC DATA LOADERS
     #
     # add to gpu device for ffcv loader if possible
-    pipelines = deepcopy(SphericalGeometryDataset.pipelines)
-    if not device is None:
-        pipelines.append(ToDevice(device))
+    pipelines = SphericalGeometryDataset.ffcv_pipelines
+    ps = {}
+    for k in pipelines:
+        ps[k] = deepcopy(pipelines[k])
+        if not device is None:
+            ps[k].append(ToDevice(device))
 
-    dpath_train = "/spaths/datasets/{dataset_name}_train.beton"
+    dpath_train = f"/spaths/datasets/{dataset_name}_train.beton"
     train_loader = Loader(dpath_train,
-                          pipelines = pipelines,
+                          pipelines = ps,
                           **config['loader_params'])
-    dpath_test = "/spaths/datasets/{dataset_name}_test.beton"
-    test_loader = Loader(dpath-test,
-                         pipelines = pipelines,
+    dpath_test = f"/spaths/datasets/{dataset_name}_test.beton"
+    test_loader = Loader(dpath_test,
+                         pipelines = ps,
                          **config['loader_params'])
 
-    # BEGIN TRAINING
 
+    # BEGIN TRAINING
     Path(f"{logger.log_dir}/samples").mkdir(exist_ok=True, parents=True)
     Path(f"{logger.log_dir}/reconstructions").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
