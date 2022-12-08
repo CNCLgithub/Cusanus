@@ -1,7 +1,7 @@
 train:
-    n_shapes: 100000
-    k_queries: 1000
+    n_shapes: 10000
+    dim_queries: 30
 
 test:
     n_shapes: 100
-    k_queries: 100
+    dim_queries: 10

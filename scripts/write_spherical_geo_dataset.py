@@ -4,9 +4,21 @@ import os
 import yaml
 import argparse
 import torch
+import torchvision
 import numpy as np
 
 from cusanus.datasets import SphericalGeometryDataset
+from cusanus.datasets.geometry import spherical_occupancy_field
+from cusanus.utils import grids_along_depth
+from cusanus.utils.visualization import aggregrate_depth_scans
+
+def debug_dataset(r:float = 0.7):
+    qs = torch.Tensor(grids_along_depth(9, 128))
+    ys = torch.Tensor(spherical_occupancy_field(r, qs))
+    grid = aggregrate_depth_scans(qs, ys, 9, 128)
+    img_path = '/spaths/datasets/test.png'
+    torchvision.utils.save_image(grid, img_path, normalize=False)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -22,19 +34,20 @@ def main():
                         default = 4)
     args = parser.parse_args()
 
+    debug_dataset()
+
     with open(f"/project/scripts/configs/spherical_geometry.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
     # dataset is procedural so no source file
     dpath = os.path.join('/spaths/datasets', args.dest + '_train.beton')
     d = SphericalGeometryDataset(**config['train'])
-    w = d.write_ffcv(dpath)
-    w.from_indexed_dataset(d)
+    d.write_ffcv(dpath)
+
     dpath = os.path.join('/spaths/datasets', args.dest + '_test.beton')
     d = SphericalGeometryDataset(**config['test'])
-    # d.write_ffcv(dpath)
-    w = d.write_ffcv(dpath)
-    w.from_indexed_dataset(d)
+    d.write_ffcv(dpath)
+
 
 if __name__ == '__main__':
     main()

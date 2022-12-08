@@ -3,13 +3,14 @@ import torch
 import torchopt
 import functools
 from torch import optim
-from torch.nn.functional import mse_loss
+from torch.nn.functional import mse_loss, l1_loss
 import pytorch_lightning as pl
 # import torchvision.utils as vutils
 from functorch import vmap, make_functional_with_buffers, grad
 
 from cusanus.pytypes import *
 from cusanus.archs import ImplicitNeuralModule, LatentModulation
+from cusanus.utils import RenderGeometry
 
 class ImplicitNeuralField(pl.LightningModule):
     """Implements a generic task implicit neural fields
@@ -31,42 +32,44 @@ class ImplicitNeuralField(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore = 'inr')
         self.inr = inr
-        # (tfunc, tparams) = make_functional_with_buffers(inr.theta)
-        # self.tfunc = tfunc
-        # self.tparms = tparams
 
     def initialize_modulation(self):
-        m = LatentModulation(self.inr.hidden)
+        m = LatentModulation(self.inr.mod)
         m.to(self.device)
         m.train()
-        return make_functional(m)
+        return make_functional_with_buffers(m)
 
     def initialize_inner_opt(self, mparams):
         lr = self.hparams.lr_inner
-        optim = torchopt.FuncOptimizer(torchopt.sgd(lr))
-        return optim
-        # optim = torchopt.sgd(lr)
-        # opt_state = optim.init(mparams)
-        # return (optim, opt_state)
+        opt = torchopt.sgd(lr=lr)
+        opt_state = opt.init(mparams)
+        return (opt, opt_state)
+
+    def backward(self, loss, optimizer, optimizer_idx):
+        loss.backward()   # average loss of all modulations
+        optimizer.step()  # outer optimizer
+        torch.cuda.empty_cache()
 
     def training_step(self, batch, batch_idx, optimizer_idx = 0):
         # each task in the batch is a group of queries and outputs
         qs, ys = batch
         # Fitting modulations for current generation
         # In parallel, trains one mod per task.
-        outer_opt = self.optimizers()
-        outer_opt.zero_grad()
+        # outer_opt = self.optimizers()
+        # outer_opt.zero_grad()
         vloss = functools.partial(inner_modulation_loop,
                                   self)
         # fit modulations on batch - returns averaged loss
         # Compute the maml loss by summing together the returned losses.
         mod_losses = torch.mean(vmap(vloss)(qs, ys))
-        # Update theta
-        mod_losses.backward()
-        outer_opt.step()
-        self.log_dict({'loss' : mod_losses.item()}, sync_dist=True)
-        torch.cuda.empty_cache()
-        return None  # skip the default optimizer steps by PyTorch Lightning
+        self.log('loss', mod_losses.item())
+        return mod_losses # overriding `backward`. See above
+
+    def fit_modulation(self, qs:Tensor, ys:Tensor):
+        return fit_modulation(self, qs, ys)
+
+    def eval_modulation(self, m, qs:Tensor):
+        return eval_modulation(self, m, qs)
 
     # def validation_step(self, batch, batch_idx, optimizer_idx = 0):
     #     self.inr.train()
@@ -106,32 +109,33 @@ class ImplicitNeuralField(pl.LightningModule):
         return [optimizer], [scheduler]
 
 
+def eval_modulation(exp, mod, qs : Tensor):
+    (mfunc, mparams, mbuffers) = mod
+    phi = mfunc(mparams, mbuffers)
+    return exp.inr(qs, phi)
+
 # https://github.com/metaopt/torchopt/blob/main/examples/FuncTorch/maml_omniglot_vmap.py
 # borrowed from above
 def fit_modulation(exp, qs: Tensor, ys: Tensor):
 
-    m = LatentModulation(exp.inr.hidden)
-    m.to(exp.device)
-    m.train()
-    (mfunc, mparams, mbuffers) = make_functional_with_buffers(m)
-
+    # modulation in functorch form
+    (mfunc, mparams, mbuffers) = exp.initialize_modulation()
     # init inner loop optimizer
-    lr = exp.hparams.lr_inner
-    opt = torchopt.sgd(lr=lr)
-    opt_state = opt.init(mparams)
+    opt, opt_state = exp.initialize_inner_opt(mparams)
 
-    def compute_loss(mparams, qs, ys):
-        mod = mfunc(mparams, mbuffers)
-        # pred_ys = tfunc(tparams, tbuffers, qs, mod)
-        pred_ys = exp.inr(qs, mod)
+    def compute_loss(mparams):
+        # using updated params
+        pred_ys = eval_modulation(exp, (mfunc, mparams, mbuffers), qs)
         loss = mse_loss(pred_ys, ys)
         return loss
 
     new_mparams = mparams
     for _ in range(exp.hparams.inner_steps):
-        grads = grad(compute_loss)(new_mparams, qs, ys)
-        updates, opt_state = opt.update(grads, opt_state, inplace=False)
-        new_mparams = torchopt.apply_updates(new_mparams, updates, inplace=False)
+        grads = grad(compute_loss)(new_mparams)
+        updates, opt_state = opt.update(grads, opt_state,
+                                        inplace=False)
+        new_mparams = torchopt.apply_updates(new_mparams, updates,
+                                             inplace=False)
 
     return (mfunc, new_mparams, mbuffers)
 
@@ -144,5 +148,5 @@ def inner_modulation_loop(exp, qs: Tensor, ys: Tensor):
     # final loss and accuracy on the query dataset.
     # These will be used to update the model's meta-parameters.
     pred_ys = exp.inr(qs, mod)
-    loss = mse_loss(pred_ys, ys)
+    loss = l1_loss(pred_ys, ys)
     return loss

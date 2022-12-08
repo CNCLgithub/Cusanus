@@ -15,6 +15,7 @@ from ffcv.transforms import ToDevice
 from cusanus.archs import ImplicitNeuralModule
 from cusanus.tasks import OccupancyField
 from cusanus.datasets import SphericalGeometryDataset
+from cusanus.utils import RenderGeometry
 
 
 task_name = 'occupancy_field'
@@ -41,8 +42,10 @@ def main():
                          ModelCheckpoint(save_top_k = 5,
                                          dirpath = os.path.join(logger.log_dir ,
                                                                 "checkpoints"),
-                                         monitor= "val_loss",
+                                         monitor= "loss",
                                          save_last=True),
+                         RenderGeometry(epoch_step = 1)
+
                      ],
                      accelerator = 'auto',
                      deterministic = True,
