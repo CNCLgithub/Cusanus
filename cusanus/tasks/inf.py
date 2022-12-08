@@ -12,6 +12,8 @@ from cusanus.pytypes import *
 from cusanus.archs import ImplicitNeuralModule, LatentModulation
 from cusanus.utils import RenderGeometry
 
+from GPUtil import showUtilization as gpu_usage
+
 class ImplicitNeuralField(pl.LightningModule):
     """Implements a generic task implicit neural fields
 
@@ -55,14 +57,14 @@ class ImplicitNeuralField(pl.LightningModule):
         qs, ys = batch
         # Fitting modulations for current generation
         # In parallel, trains one mod per task.
-        # outer_opt = self.optimizers()
-        # outer_opt.zero_grad()
         vloss = functools.partial(inner_modulation_loop,
                                   self)
         # fit modulations on batch - returns averaged loss
         # Compute the maml loss by summing together the returned losses.
         mod_losses = torch.mean(vmap(vloss)(qs, ys))
         self.log('loss', mod_losses.item())
+        self.log('avg_gt_ys', torch.mean(ys.detach()).item(),
+                 prog_bar=True)
         return mod_losses # overriding `backward`. See above
 
     def fit_modulation(self, qs:Tensor, ys:Tensor):
@@ -70,33 +72,6 @@ class ImplicitNeuralField(pl.LightningModule):
 
     def eval_modulation(self, m, qs:Tensor):
         return eval_modulation(self, m, qs)
-
-    # def validation_step(self, batch, batch_idx, optimizer_idx = 0):
-    #     self.inr.train()
-    #     ms, loss = self.outer_loop(batch)
-    #     self.log_dict({'val_loss' : loss.item()}, sync_dist = True)
-    #     # TODO: add visualization
-    #     #
-    #     # val_loss = self.decoder.loss_function(pred_gs,
-    #     #                                       real_gs,
-    #     #                                       optimizer_idx=optimizer_idx,
-    #     #                                       batch_idx = batch_idx)
-    #     #     results = pred_gs.unsqueeze(1)
-    #     # vutils.save_image(results.data,
-    #     #                   os.path.join(self.logger.log_dir ,
-    #     #                                "reconstructions",
-    #     #                                f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-    #     #                   normalize=False,
-    #     #                   nrow=6)
-    #     # vutils.save_image(real_gs.unsqueeze(1).data,
-    #     #                   os.path.join(self.logger.log_dir ,
-    #     #                                "reconstructions",
-    #     #                                f"gt_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-    #     #                   normalize=False,
-    #     #                   nrow=6)
-    #     # self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
-    #     return loss
-
 
     def configure_optimizers(self):
 
@@ -131,6 +106,8 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor):
 
     new_mparams = mparams
     for _ in range(exp.hparams.inner_steps):
+        gpu_usage()
+        print(torch.cuda.memory_stats())
         grads = grad(compute_loss)(new_mparams)
         updates, opt_state = opt.update(grads, opt_state,
                                         inplace=False)

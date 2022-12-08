@@ -6,6 +6,9 @@ import argparse
 import torch
 import torchvision
 import numpy as np
+from copy import deepcopy
+
+from ffcv.loader import Loader
 
 from cusanus.datasets import SphericalGeometryDataset
 from cusanus.datasets.geometry import spherical_occupancy_field
@@ -48,6 +51,15 @@ def main():
     d = SphericalGeometryDataset(**config['test'])
     d.write_ffcv(dpath)
 
+    pipelines = SphericalGeometryDataset.ffcv_pipelines
+    ps = {}
+    for k in pipelines:
+        ps[k] = deepcopy(pipelines[k])
+        # if not device is None:
+        #     ps[k].append(ToDevice(device))
+    loader = Loader(dpath, pipelines = ps, batch_size = 8)
+    for (qs, ys) in loader:
+        print(ys.mean())
 
 if __name__ == '__main__':
     main()

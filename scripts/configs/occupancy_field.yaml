@@ -19,7 +19,7 @@ data_params:
   test_path: "/spaths/datasets/spherical_geo_test.beton"
 
 loader_params:
-  batch_size: 64
+  batch_size: 48
   num_workers: 8
 
 trainer_params:

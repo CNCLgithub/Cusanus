@@ -8,7 +8,6 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from pytorch_lightning.plugins import DDPPlugin
 from ffcv.loader import Loader
 from ffcv.transforms import ToDevice
 
@@ -20,6 +19,24 @@ from cusanus.utils import RenderGeometry
 
 task_name = 'occupancy_field'
 dataset_name = 'spherical_geometry'
+
+from GPUtil import showUtilization as gpu_usage
+from numba import cuda
+
+def free_gpu_cache():
+    print("Initial GPU Usage")
+    gpu_usage()
+
+    torch.cuda.empty_cache()
+
+    cuda.select_device(0)
+    cuda.close()
+    cuda.select_device(0)
+
+    print("GPU Usage after emptying the cache")
+    gpu_usage()
+
+free_gpu_cache()
 
 def main():
     with open(f"/project/scripts/configs/{task_name}.yaml", 'r') as file:
@@ -69,17 +86,18 @@ def main():
     train_loader = Loader(dpath_train,
                           pipelines = ps,
                           **config['loader_params'])
-    dpath_test = f"/spaths/datasets/{dataset_name}_test.beton"
-    test_loader = Loader(dpath_test,
-                         pipelines = ps,
-                         **config['loader_params'])
+    # dpath_test = f"/spaths/datasets/{dataset_name}_test.beton"
+    # test_loader = Loader(dpath_test,
+    #                      pipelines = ps,
+    #                      **config['loader_params'])
 
 
     # BEGIN TRAINING
     Path(f"{logger.log_dir}/samples").mkdir(exist_ok=True, parents=True)
     Path(f"{logger.log_dir}/reconstructions").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
-    runner.fit(task, train_loader, test_loader)
+    gpu_usage()
+    runner.fit(task, train_dataloaders = train_loader)
 
 if __name__ == '__main__':
     main()

@@ -37,11 +37,11 @@ class SirenNet(nn.Module):
                  theta_hidden:int,
                  theta_out:int,
                  depth:int,
-                 w0 = 1.0,
+                 w0 = 5.0,
                  w0_initial = 30.,
-                 c = 6.0,
+                 c = 1.0,
                  use_bias = True,
-                 final_activation = nn.Sigmoid):
+                 final_activation = nn.Identity):
         super().__init__()
         self.depth = depth
         self.layers = nn.ModuleList([])
@@ -60,11 +60,13 @@ class SirenNet(nn.Module):
                   bias = use_bias, activation = False),
             final_activation())
 
-    def forward(self, x:Tensor, phi:Tensor):
+    def forward(self, q:Tensor, phi:Tensor):
+        x = q
         for l in range(self.depth - 1):
             x = self.layers[l](x)
             x += phi[l]
-        return self.last_layer(x)
+        x = self.last_layer(x)
+        return x
 
 class LatentModulation(nn.Module):
 
