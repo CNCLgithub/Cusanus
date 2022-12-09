@@ -19,7 +19,7 @@ class Sine(nn.Module):
 class Siren(nn.Module):
     def __init__(self, dim_in:int, dim_out:int,
                  w0:float = 1., w_std:float = 1.,
-                 bias = True, activation = False):
+                 bias = True, activation = True):
         super().__init__()
         self.linear = nn.Linear(dim_in, dim_out, bias = bias)
         nn.init.uniform_(self.linear.weight, a = -w_std, b = w_std)
