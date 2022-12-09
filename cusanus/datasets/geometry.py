@@ -20,16 +20,14 @@ class SphericalGeometryDataset(Dataset):
     ffcv_pipelines = _pipelines
 
     # inheriting pytorch dataset; return vector of object and gstate
-    def __init__(self, n_shapes:int = 1000, dim_queries:int = 100,
-                 r_min:float = 0.6, r_max:float = 0.7,
-                 sigma:float=0.1) -> None:
+    def __init__(self, n_shapes:int = 1000, k_queries:int = 100,
+                 r_min:float = 0.1, r_max:float = 0.8,
+                 sigma:float=0.66) -> None:
         self.n_shapes = n_shapes
-        self.dim_queries = dim_queries
-        self.k_queries = dim_queries ** 3
+        self.k_queries = k_queries
         self.r_min = r_min
         self.r_max = r_max
         self.sigma = sigma
-        self.grid = grids_along_depth(dim_queries, dim_queries).numpy()
 
     def __len__(self):
         return self.n_shapes
@@ -37,10 +35,8 @@ class SphericalGeometryDataset(Dataset):
     def __getitem__(self, idx):
         radius = np.random.uniform(low = self.r_min,
                                    high = self.r_max)
-        qs = np.random.uniform(low = -self.sigma,
-                                high = self.sigma,
-                                size = (self.k_queries, 3))
-        qs += self.grid
+        qs = np.random.normal(scale = radius * self.sigma,
+                              size = (self.k_queries, 3))
         qs = qs.astype(np.float32)
         ys = spherical_occupancy_field(radius, qs)
         return (qs, ys)
@@ -59,6 +55,7 @@ class SphericalGeometryDataset(Dataset):
 
 
 def spherical_occupancy_field(r: float, qs: np.ndarray):
+    # return np.linalg.norm(qs, axis = 1) - r
     bs = r >= np.linalg.norm(qs, axis = 1)
     ys = bs.astype(np.float32)
     return ys

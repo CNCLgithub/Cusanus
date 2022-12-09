@@ -59,6 +59,8 @@ def main():
         #     ps[k].append(ToDevice(device))
     loader = Loader(dpath, pipelines = ps, batch_size = 8)
     for (qs, ys) in loader:
+        print(qs.shape)
+        print(ys.shape)
         print(ys.mean())
 
 if __name__ == '__main__':

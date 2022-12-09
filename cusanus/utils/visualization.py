@@ -34,15 +34,15 @@ class RenderGeometry(pl.Callback):
     def __init__(self,
                  batch_size:int=9,
                  img_dim:int=128,
-                 epoch_step:int=5):
+                 batch_step:int=5):
         super().__init__()
         self.batch_size = batch_size
         self.img_dim = img_dim
+        self.batch_step = batch_step
 
-        self.epoch_step = epoch_step
     def on_train_batch_end(self, trainer, exp, outputs, batch, batch_idx):
         # Skip for all other epochs
-        if (batch_idx == 0) and trainer.current_epoch % self.epoch_step == 0:
+        if (batch_idx % self.batch_step) == 0:
             (qs, ys) = batch
             qs = qs[0]
             ys = ys[0]
@@ -51,14 +51,16 @@ class RenderGeometry(pl.Callback):
             pred_qs = pred_qs.to(exp.device)
             m = exp.fit_modulation(qs, ys)
             pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
-            print(pred_ys.min(), pred_ys.max())
-            self.log('min_y', pred_ys.min())
-            self.log('max_y', pred_ys.max())
-            pred_qs = pred_qs.cpu()
+            print(pred_ys.min(), pred_ys.max(), pred_ys.mean())
+            # ys = ys.detach().cpu()
+            # self.log('gtmin_y', ys.min(), prog_bar=True)
+            # self.log('gtmax_y', ys.max(), prog_bar=True)
+            pred_qs = pred_qs.detach().cpu()
             grid = aggregrate_depth_scans(pred_qs, pred_ys,
                                           self.batch_size,
                                           self.img_dim)
 
             img_path = os.path.join(exp.logger.log_dir, "reconstructions",
-                                    f"recons_{exp.logger.name}_Epoch_{exp.current_epoch}.png")
+                                    f"recons_{exp.logger.name}_Epoch_{exp.current_epoch}" + \
+                                    f"_batch_{batch_idx}.png")
             torchvision.utils.save_image(grid, img_path, normalize=False)

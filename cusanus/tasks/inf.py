@@ -98,16 +98,20 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor):
     # init inner loop optimizer
     opt, opt_state = exp.initialize_inner_opt(mparams)
 
+    ys_std = torch.std(ys)
+
     def compute_loss(mparams):
         # using updated params
-        pred_ys = eval_modulation(exp, (mfunc, mparams, mbuffers), qs)
-        loss = mse_loss(pred_ys, ys)
-        return loss
+        m = (mfunc, mparams, mbuffers)
+        pred_ys = eval_modulation(exp, m, qs)
+        rec_loss = torch.mean(mse_loss(pred_ys, ys))
+        l2_loss = torch.sum(mparams[0] ** 2)
+        return rec_loss + l2_loss
 
     new_mparams = mparams
     for _ in range(exp.hparams.inner_steps):
-        gpu_usage()
-        print(torch.cuda.memory_stats())
+        # gpu_usage()
+        # print(torch.cuda.memory_stats())
         grads = grad(compute_loss)(new_mparams)
         updates, opt_state = opt.update(grads, opt_state,
                                         inplace=False)
@@ -118,12 +122,9 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor):
 
 def inner_modulation_loop(exp, qs: Tensor, ys: Tensor):
     m = fit_modulation(exp, qs, ys)
-    # (tfunc, tparams, tbuffers) = t
-    (mfunc, mparams, mbuffers) = m
-    mod = mfunc(mparams, mbuffers)
     # The final set of adapted parameters will induce some
     # final loss and accuracy on the query dataset.
     # These will be used to update the model's meta-parameters.
-    pred_ys = exp.inr(qs, mod)
-    loss = l1_loss(pred_ys, ys)
-    return loss
+    pred_ys = eval_modulation(exp, m, qs)
+    rec_loss = torch.mean(mse_loss(pred_ys, ys))
+    return rec_loss

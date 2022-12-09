@@ -37,11 +37,11 @@ class SirenNet(nn.Module):
                  theta_hidden:int,
                  theta_out:int,
                  depth:int,
-                 w0 = 5.0,
-                 w0_initial = 30.,
-                 c = 1.0,
+                 w0 = 1.0,
+                 w0_initial = 5.0,
+                 c = 6.0,
                  use_bias = True,
-                 final_activation = nn.Identity):
+                 final_activation = nn.Sigmoid):
         super().__init__()
         self.depth = depth
         self.layers = nn.ModuleList([])
@@ -51,20 +51,19 @@ class SirenNet(nn.Module):
                 dim_in = theta_in if l == 0 else theta_hidden,
                 dim_out = theta_hidden,
                 w0 = w0_initial if l == 0 else w0,
-                w_std = 1.0 / theta_in if l == 0 else w_std,
+                w_std = w_std, # 1.0 / theta_in if l == 0 else w_std,
                 bias = use_bias,
+                activation = True,
             )
             self.layers.append(layer)
-        self.last_layer = nn.Sequential(
-            Siren(dim_in = theta_hidden, dim_out = theta_out, w0 = w0,
-                  bias = use_bias, activation = False),
-            final_activation())
+        self.last_layer = nn.Sequential(Siren(dim_in = theta_hidden,
+                                              dim_out = theta_out, w0 = w0,
+                                              bias = use_bias, activation = False),
+                                        final_activation())
 
-    def forward(self, q:Tensor, phi:Tensor):
-        x = q
+    def forward(self, x:Tensor, phi:Tensor):
         for l in range(self.depth - 1):
-            x = self.layers[l](x)
-            x += phi[l]
+            x = self.layers[l](x) + phi[l]
         x = self.last_layer(x)
         return x
 
@@ -81,30 +80,28 @@ class Modulator(nn.Module):
     def __init__(self, dim_in: int, dim_hidden:int, depth: int):
         super().__init__()
         self.depth = depth
+        self.hidden = dim_hidden
         self.layers = nn.ModuleList([])
         for ind in range(depth):
             is_first = ind == 0
             # for skip connection
             dim = dim_in if is_first else (dim_hidden + dim_in)
-            self.layers.append(nn.Sequential(
-                nn.Linear(dim, dim_hidden),
-                nn.ReLU()
-            ))
+            layer = nn.Sequential(nn.Linear(dim, dim_hidden),
+                                  nn.ReLU())
+            self.layers.append(layer)
 
     def forward(self, m):
         x = m # set as first input
-        hiddens = []
+        hiddens = x.new_empty((self.depth, self.hidden))
         for l in range(self.depth - 1):
             # pass through next layer in modulator
             x = self.layers[l](x)
             # save layer output
-            hiddens.append(x)
+            hiddens[l] = x
             # concat with latent code for next step
             x = torch.cat((x, m), dim = -1)
         #
-        # last layer returns output of `dim_hidden`
-        x = self.layers[-1](x)
-        hiddens.append(x)
+        hiddens[-1] = self.layers[-1](x)
         return hiddens
 
 class ImplicitNeuralModule(nn.Module):

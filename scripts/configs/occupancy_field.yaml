@@ -5,13 +5,13 @@ arch_params:
     out: 1
     hidden: 256
     mod: 2
-    depth: 10
+    depth: 5
 
 task_params:
-    inner_steps: 3
+    inner_steps: 5
     lr: 0.00001
     weight_decay: 0.0
-    sched_gamma: 1.0
+    sched_gamma: 0.9
     lr_inner: 0.01
 
 data_params:
@@ -19,8 +19,8 @@ data_params:
   test_path: "/spaths/datasets/spherical_geo_test.beton"
 
 loader_params:
-  batch_size: 48
-  num_workers: 8
+  batch_size: 64
+  num_workers: 4
 
 trainer_params:
   max_epochs: 1000

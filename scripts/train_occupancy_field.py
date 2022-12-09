@@ -61,7 +61,7 @@ def main():
                                                                 "checkpoints"),
                                          monitor= "loss",
                                          save_last=True),
-                         RenderGeometry(epoch_step = 1)
+                         RenderGeometry(batch_step = 50)
 
                      ],
                      accelerator = 'auto',
@@ -97,7 +97,7 @@ def main():
     Path(f"{logger.log_dir}/reconstructions").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
     gpu_usage()
-    runner.fit(task, train_dataloaders = train_loader)
+    runner.fit(task, train_loader)
 
 if __name__ == '__main__':
     main()
