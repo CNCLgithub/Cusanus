@@ -18,7 +18,8 @@ from cusanus.utils import RenderGeometry
 
 
 task_name = 'occupancy_field'
-dataset_name = 'spherical_geometry'
+dataset_name = 'mesh_geometry'
+# dataset_name = 'spherical_geometry'
 
 from GPUtil import showUtilization as gpu_usage
 from numba import cuda
@@ -93,8 +94,7 @@ def main():
 
 
     # BEGIN TRAINING
-    Path(f"{logger.log_dir}/samples").mkdir(exist_ok=True, parents=True)
-    Path(f"{logger.log_dir}/reconstructions").mkdir(exist_ok=True, parents=True)
+    Path(f"{logger.log_dir}/volumes").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
     gpu_usage()
     runner.fit(task, train_loader)

@@ -1,3 +1,5 @@
+plotly
+trimesh[easy]
 pyaml
 pandas
 numba

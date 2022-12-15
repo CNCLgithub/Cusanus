@@ -12,16 +12,26 @@ from ffcv.loader import Loader
 
 from cusanus.datasets import SphericalGeometryDataset
 from cusanus.datasets.geometry import spherical_occupancy_field
-from cusanus.utils import grids_along_depth
-from cusanus.utils.visualization import aggregrate_depth_scans
+from cusanus.utils import grids_along_axis
 
-def debug_dataset(r:float = 0.7):
-    qs = torch.Tensor(grids_along_depth(9, 128))
-    ys = torch.Tensor(spherical_occupancy_field(r, qs))
-    grid = aggregrate_depth_scans(qs, ys, 9, 128)
-    img_path = '/spaths/datasets/test.png'
-    torchvision.utils.save_image(grid, img_path, normalize=False)
+import plotly.graph_objects as go
 
+def viz_trial(d):
+    qs = grids_along_axis(30, 30, delta=6.0)
+    r = 0.5 * (d.r_min + d.r_max)
+    ys = spherical_occupancy_field(r, qs).astype(np.float64)
+    fig = go.Figure(data=go.Volume(
+        x=qs[:, 0],
+        y=qs[:, 1],
+        z=qs[:, 2],
+        value=ys,
+        # isomin=-5.0,
+        # isomax=3.0,
+        opacity=0.2, # needs to be small to see through all surfaces
+        surface_count=40, # needs to be a large number for good volume rendering
+        autocolorscale = True,
+        ))
+    fig.write_html('/spaths/datasets/sphere.html')
 
 def main():
     parser = argparse.ArgumentParser(
@@ -37,14 +47,13 @@ def main():
                         default = 4)
     args = parser.parse_args()
 
-    debug_dataset()
-
     with open(f"/project/scripts/configs/spherical_geometry.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
     # dataset is procedural so no source file
     dpath = os.path.join('/spaths/datasets', args.dest + '_train.beton')
     d = SphericalGeometryDataset(**config['train'])
+    viz_trial(d)
     d.write_ffcv(dpath)
 
     dpath = os.path.join('/spaths/datasets', args.dest + '_test.beton')

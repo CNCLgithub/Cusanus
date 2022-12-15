@@ -4,7 +4,7 @@ arch_params:
     q_in: 3
     out: 1
     hidden: 256
-    mod: 2
+    mod: 24
     depth: 5
 
 task_params:

@@ -38,7 +38,7 @@ class SirenNet(nn.Module):
                  theta_out:int,
                  depth:int,
                  w0 = 1.0,
-                 w0_initial = 5.0,
+                 w0_initial = 10.0,
                  c = 6.0,
                  use_bias = True,
                  final_activation = nn.Sigmoid):
