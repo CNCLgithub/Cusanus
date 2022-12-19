@@ -4,7 +4,7 @@ arch_params:
     q_in: 3
     out: 1
     hidden: 256
-    mod: 24
+    mod: 64
     depth: 5
 
 task_params:
@@ -23,7 +23,7 @@ loader_params:
   num_workers: 4
 
 trainer_params:
-  max_epochs: 1000
+  max_epochs: 100
 
 logging_params:
   save_dir: "/spaths/checkpoints"

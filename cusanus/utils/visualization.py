@@ -1,6 +1,7 @@
 import os
 import torch
 import torchvision
+import numpy as np
 import pytorch_lightning as pl
 from pathlib import Path
 import plotly.graph_objects as go
@@ -44,6 +45,7 @@ def plot_volume(qs, ys, **plot_args):
         ))
     return fig
 
+
 class RenderGeometry(pl.Callback):
     def __init__(self,
                  samples:int=30,
@@ -74,3 +76,99 @@ class RenderGeometry(pl.Callback):
                                 f"epoch_{exp.current_epoch}" + \
                                 f"_batch_{batch_idx}.html")
             fig.write_html(path)
+
+# adapted from https://plotly.com/python/visualizing-mri-volume-slices/
+def plot_volume_slice(qs:Tensor, ys:Tensor, n : int):
+
+    volume = ys.reshape((n,n,n))
+    coords = qs.reshape((n,n,n,3))
+    # (n n 2)
+    axis_coords = coords[:, 0, 0, 0]
+    plane_coords = coords[0, :n, :n, 1:]
+    d1 = plane_coords[:, :, 0]
+    d2 = plane_coords[:, :, 1]
+
+    fig = go.Figure(frames=[
+        go.Frame(
+            data=go.Surface(
+                z= torch.tile(axis_coords[k], (n,n)),
+                surfacecolor=volume[k],
+                x = d1,
+                y = d2,
+                colorscale='Gray',
+            ),
+        name=str(k))
+    for k in range(n)])
+
+    # Add data to be displayed before animation starts
+    fig.add_trace(go.Surface(
+        z= torch.tile(axis_coords[0], (n,n)),
+        surfacecolor=volume[0],
+        x = d1,
+        y = d2,
+        colorscale='Gray',
+        cmin=0, cmax=1,
+        colorbar=dict(thickness=20, ticklen=4)
+        ))
+
+    def frame_args(duration):
+        return {
+                "frame": {"duration": duration},
+                "mode": "immediate",
+                "fromcurrent": True,
+                "transition": {"duration": duration, "easing": "linear"},
+            }
+
+    sliders = [
+                {
+                    "pad": {"b": 10, "t": 60},
+                    "len": 0.9,
+                    "x": 0.1,
+                    "y": 0,
+                    "steps": [
+                        {
+                            "args": [[f.name], frame_args(0)],
+                            "label": str(k),
+                            "method": "animate",
+                        }
+                        for k, f in enumerate(fig.frames)
+                    ],
+                }
+            ]
+
+    min_axis = axis_coords.min()
+    max_axis = axis_coords.max()
+    # Layout
+    fig.update_layout(
+            title='Slices in volumetric data',
+            width=600,
+            height=600,
+            scene=dict(
+                        zaxis=dict(range=[min_axis, max_axis],
+                                   autorange=False),
+                        aspectratio=dict(x=1, y=1, z=1),
+                        ),
+            updatemenus = [
+                {
+                    "buttons": [
+                        {
+                            "args": [None, frame_args(n)],
+                            "label": "&#9654;", # play symbol
+                            "method": "animate",
+                        },
+                        {
+                            "args": [[None], frame_args(0)],
+                            "label": "&#9724;", # pause symbol
+                            "method": "animate",
+                        },
+                    ],
+                    "direction": "left",
+                    "pad": {"r": 10, "t": 70},
+                    "type": "buttons",
+                    "x": 0.1,
+                    "y": 0,
+                }
+            ],
+            sliders=sliders
+    )
+    return fig
