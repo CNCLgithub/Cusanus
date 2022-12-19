@@ -12,6 +12,7 @@ import trimesh
 
 from cusanus.pytypes import *
 from cusanus.utils import grids_along_depth
+from cusanus.utils.meshes import sheered_rect_prism, ramp_mesh
 
 _pipe = [NDArrayDecoder(),
          ToTensor(),
@@ -67,29 +68,43 @@ def spherical_occupancy_field(r: float, qs: np.ndarray):
 class MeshGeometryDataset(OccupancyFieldDataset):
 
     # inheriting pytorch dataset; return vector of object and gstate
-    def __init__(self, srcs: List[str], n_shapes:int = 1000, k_queries:int = 100,
-                 delta_y:float = 1.0, delta_size:float = 0.5,
-                 qsigma:float = 3.0) -> None:
+    def __init__(self, n_shapes:int = 1000, k_queries:int = 100,
+                 delta_y:float = 0.1, delta_size:float = 0.1,
+                 qsigma:float = 2.0,
+                 obs_extents:List[float] = [1.5,1.5,2.5],
+                 ramp_extents:List[float]= [4.0, 1.5, .1]) -> None:
         self.n_shapes = n_shapes
         self.k_queries = k_queries
         self.delta_y = delta_y
         self.delta_size = delta_size
         self.qsigma = qsigma
-        self.meshes = self.load_meshes(srcs)
         self.axis = np.array([0., 1., 0.])
-
-    def load_meshes(self, srcs: List[str]):
-        meshes = []
-        for s in srcs:
-            m = trimesh.load(s)
-            meshes.append(m)
-        return meshes
-
+        self.obs_extents = obs_extents
+        self.ramp_extents = ramp_extents
 
     def __len__(self):
         return self.n_shapes
 
+    def sample_obstacle(self):
+        theta = np.random.uniform(low = 0.1,
+                                  high = np.pi * 0.5)
+        return sheered_rect_prism(self.obs_extents,
+                                  theta)
+
+    def sample_ramp(self):
+        theta = np.random.uniform(low = 0.1,
+                                  high = np.pi * 0.4)
+        return ramp_mesh(self.ramp_extents, theta)
+
+
     def __getitem__(self, idx):
+
+        # obstacle
+        if np.random.choice():
+            mesh = sample_obstacle()
+        else:
+            mesh = sample_ramp()
+
         # sample random rotation along y axis (radians)
         ytheta = np.random.uniform(low = -self.delta_y,
                                    high = self.delta_y)
@@ -99,14 +114,13 @@ class MeshGeometryDataset(OccupancyFieldDataset):
         scale = np.random.uniform(low = 1.0 - self.delta_size,
                                   high = 1.0 + self.delta_size)
         sclm = trimesh.transformations.scale_matrix(scale)
-        # load a random mesh
-        mesh = deepcopy(np.random.choice(self.meshes))
         # apply transforms
         mesh.apply_transform(sclm)
         mesh.apply_transform(rotm)
 
         # sample qs
-        qs = np.random.normal(scale = self.qsigma,
+        bounds = np.max(np.abs(mesh.bounds))
+        qs = np.random.normal(scale = bounds * self.qsigma,
                               size = (self.k_queries, 3))
         qs = qs.astype(np.float32)
         # comput occupancy outputs
