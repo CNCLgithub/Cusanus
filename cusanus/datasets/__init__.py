@@ -1,2 +1,3 @@
+from .field import FieldDataset, write_ffcv, load_ffcv
 from .geometry import SphericalGeometryDataset, MeshGeometryDataset
-from .geometry import write_ffcv
+from .motion import KinematicsFieldDataset

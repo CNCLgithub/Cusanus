@@ -1,52 +1,20 @@
 import torch
-import numpy as np
-from copy import deepcopy
-from torch.utils.data import Dataset
-from ffcv.writer import DatasetWriter
-from ffcv.fields import NDArrayField
-from ffcv.fields.decoders import NDArrayDecoder
-from ffcv.loader import Loader, OrderOption
-from ffcv.transforms import (Convert, NormalizeImage, ToTensor,
-    ToDevice)
-
 import trimesh
+import numpy as np
+from abc import ABC
 
 from cusanus.pytypes import *
+from cusanus.datasets import FieldDataset
 from cusanus.utils import grids_along_depth
 from cusanus.utils.meshes import sheered_rect_prism, ramp_mesh
 
-_pipe = [NDArrayDecoder(),
-         ToTensor(),
-         Convert(torch.float32)]
-_pipelines = {'qs': _pipe, 'ys': _pipe}
-
-def write_ffcv(d:Dataset, k:int, path:str):
-    qshape = (k, 3)
-    yshape = (k, 1)
-    fields = {
-        'qs': NDArrayField(dtype = np.dtype('float32'),
-                            shape = qshape),
-        'ys': NDArrayField(dtype = np.dtype('float32'),
-                            shape = yshape),
-    }
-    writer = DatasetWriter(path, fields)
-    writer.from_indexed_dataset(d)
-
-def load_ffcv(p:str, device, **kwargs):
-    ps = {}
-    for k in ['qs', 'ys']:
-        ps[k] = deepcopy(_pipe)
-        if not device is None:
-            ps[k].append(ToDevice(device))
-    return Loader(p, pipelines = ps, order = OrderOption(3),
-                  **kwargs)
-
-class OccupancyFieldDataset(Dataset):
-    ffcv_pipelines = _pipelines
-
-    def write_ffcv(self, path:str):
-        write_ffcv(self,self.k_queries,path)
-
+class OccupancyFieldDataset(FieldDataset, ABC):
+    @property
+    def qsize(self):
+        return 3
+    @property
+    def ysize(self):
+        return 1
 
 class SphericalGeometryDataset(OccupancyFieldDataset):
 
@@ -55,10 +23,14 @@ class SphericalGeometryDataset(OccupancyFieldDataset):
                  r_min:float = 0.1, r_max:float = 0.8,
                  sigma:float=3.0) -> None:
         self.n_shapes = n_shapes
-        self.k_queries = k_queries
+        self._k_queries = k_queries
         self.r_min = r_min
         self.r_max = r_max
         self.sigma = sigma
+
+    @property
+    def k_queries(self):
+        return self._k_queries
 
     def __len__(self):
         return self.n_shapes
@@ -88,13 +60,17 @@ class MeshGeometryDataset(OccupancyFieldDataset):
                  obs_extents:List[float] = [1.5,1.5,2.5],
                  ramp_extents:List[float]= [4.0, 1.5, .1]) -> None:
         self.n_shapes = n_shapes
-        self.k_queries = k_queries
+        self._k_queries = k_queries
         self.delta_y = delta_y
         self.delta_size = delta_size
         self.qsigma = qsigma
         self.axis = np.array([0., 1., 0.])
         self.obs_extents = obs_extents
         self.ramp_extents = ramp_extents
+
+    @property
+    def k_queries(self):
+        return self._k_queries
 
     def __len__(self):
         return self.n_shapes
