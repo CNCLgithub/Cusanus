@@ -1,7 +1,0 @@
-train:
-    n_shapes: 10000
-    k_queries: 1000
-
-test:
-    n_shapes: 100
-    k_queries: 100

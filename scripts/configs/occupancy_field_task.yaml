@@ -4,15 +4,18 @@ arch_params:
     q_in: 3
     out: 1
     hidden: 256
-    mod: 64
+    mod: 128
     depth: 5
+    w0_initial: 15.0
+    w0: 1.0
+    c: 6.0
 
 task_params:
     inner_steps: 5
     lr: 0.00001
     weight_decay: 0.0
     sched_gamma: 0.9
-    lr_inner: 0.01
+    lr_inner: 0.001
 
 data_params:
   train_path: "/spaths/datasets/spherical_geo_train.beton"

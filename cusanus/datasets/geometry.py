@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 from ffcv.writer import DatasetWriter
 from ffcv.fields import NDArrayField
 from ffcv.fields.decoders import NDArrayDecoder
+from ffcv.loader import Loader, OrderOption
 from ffcv.transforms import (Convert, NormalizeImage, ToTensor,
     ToDevice)
 
@@ -19,19 +20,32 @@ _pipe = [NDArrayDecoder(),
          Convert(torch.float32)]
 _pipelines = {'qs': _pipe, 'ys': _pipe}
 
+def write_ffcv(d:Dataset, k:int, path:str):
+    qshape = (k, 3)
+    yshape = (k, 1)
+    fields = {
+        'qs': NDArrayField(dtype = np.dtype('float32'),
+                            shape = qshape),
+        'ys': NDArrayField(dtype = np.dtype('float32'),
+                            shape = yshape),
+    }
+    writer = DatasetWriter(path, fields)
+    writer.from_indexed_dataset(d)
+
+def load_ffcv(p:str, device, **kwargs):
+    ps = {}
+    for k in ['qs', 'ys']:
+        ps[k] = deepcopy(_pipe)
+        if not device is None:
+            ps[k].append(ToDevice(device))
+    return Loader(p, pipelines = ps, order = OrderOption(3),
+                  **kwargs)
+
 class OccupancyFieldDataset(Dataset):
     ffcv_pipelines = _pipelines
+
     def write_ffcv(self, path:str):
-        qshape = (self.k_queries, 3)
-        yshape = (self.k_queries, 1)
-        fields = {
-            'qs': NDArrayField(dtype = np.dtype('float32'),
-                               shape = qshape),
-            'ys': NDArrayField(dtype = np.dtype('float32'),
-                               shape = yshape),
-        }
-        writer = DatasetWriter(path, fields)
-        writer.from_indexed_dataset(self)
+        write_ffcv(self,self.k_queries,path)
 
 
 class SphericalGeometryDataset(OccupancyFieldDataset):
@@ -52,7 +66,7 @@ class SphericalGeometryDataset(OccupancyFieldDataset):
     def __getitem__(self, idx):
         radius = np.random.uniform(low = self.r_min,
                                    high = self.r_max)
-        qs = np.random.normal(scale = self.sigma,
+        qs = np.random.normal(scale = radius * self.sigma,
                               size = (self.k_queries, 3))
         qs = qs.astype(np.float32)
         ys = spherical_occupancy_field(radius, qs)
@@ -70,7 +84,7 @@ class MeshGeometryDataset(OccupancyFieldDataset):
     # inheriting pytorch dataset; return vector of object and gstate
     def __init__(self, n_shapes:int = 1000, k_queries:int = 100,
                  delta_y:float = 0.1, delta_size:float = 0.1,
-                 qsigma:float = 2.0,
+                 qsigma:float = 1.0,
                  obs_extents:List[float] = [1.5,1.5,2.5],
                  ramp_extents:List[float]= [4.0, 1.5, .1]) -> None:
         self.n_shapes = n_shapes
@@ -86,24 +100,21 @@ class MeshGeometryDataset(OccupancyFieldDataset):
         return self.n_shapes
 
     def sample_obstacle(self):
-        theta = np.random.uniform(low = 0.1,
-                                  high = np.pi * 0.5)
-        return sheered_rect_prism(self.obs_extents,
-                                  theta)
+        return sample_obstacle(self.obs_extents, 0.1,
+                               np.pi * 0.5)
 
     def sample_ramp(self):
-        theta = np.random.uniform(low = 0.1,
-                                  high = np.pi * 0.4)
-        return ramp_mesh(self.ramp_extents, theta)
+        return sample_ramp(self.ramp_extents, 0.1,
+                           np.pi * 0.4)
 
 
     def __getitem__(self, idx):
 
         # obstacle
-        if np.random.choice():
-            mesh = sample_obstacle()
+        if np.random.rand() > 0.5:
+            mesh = self.sample_obstacle()
         else:
-            mesh = sample_ramp()
+            mesh = self.sample_ramp()
 
         # sample random rotation along y axis (radians)
         ytheta = np.random.uniform(low = -self.delta_y,

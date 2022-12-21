@@ -1,3 +1,4 @@
+pybullet
 plotly
 trimesh[easy]
 pyaml

@@ -12,18 +12,21 @@ from ffcv.loader import Loader
 
 from cusanus.datasets import MeshGeometryDataset
 from cusanus.datasets.geometry import mesh_occupancy_field
-from cusanus.utils import grids_along_depth, grids_along_axis
-from cusanus.utils.visualization import aggregrate_depth_scans, plot_volume_slice
+from cusanus.utils import grids_along_axis
+from cusanus.utils.visualization import (aggregrate_depth_scans,
+                                         plot_volume_slice,
+                                         plot_volume)
 
 import trimesh
-import plotly.graph_objects as go
 
 def viz_trial(d):
     m = d.sample_obstacle()
     qs = grids_along_axis(30, 30, delta=5.0)
     ys = mesh_occupancy_field(m, qs).astype(np.float64)
-    fig = plot_volume(qs, ys, 30)
-    fig.write_html('/spaths/datasets/mesh.html')
+    fig = plot_volume_slice(qs, ys, 30)
+    fig.write_html('/spaths/datasets/mesh_sliced.html')
+    fig = plot_volume(qs, ys)
+    fig.write_html('/spaths/datasets/mesh_volume.html')
 
 srcs = ['/spaths/datasets/platform_one.obj']
 
@@ -48,7 +51,8 @@ def main():
     # dataset is procedural so no source file
     d = MeshGeometryDataset(**config['train'])
     viz_trial(d)
-    # d.write_ffcv(dpath)
+    dpath = os.path.join('/spaths/datasets', args.dest + '_train.beton')
+    d.write_ffcv(dpath)
 
     # dpath = os.path.join('/spaths/datasets', args.dest + '_test.beton')
     # d = MeshGeometryDataset(srcs, **config['test'])

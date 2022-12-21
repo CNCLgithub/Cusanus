@@ -71,10 +71,20 @@ class RenderGeometry(pl.Callback):
             print(pred_ys.min(), pred_ys.max(), pred_ys.mean())
             pred_qs = pred_qs.detach().cpu()
             fig = plot_volume(pred_qs, pred_ys)
-
             path = os.path.join(exp.logger.log_dir, "volumes",
                                 f"epoch_{exp.current_epoch}" + \
                                 f"_batch_{batch_idx}.html")
+            fig.write_html(path)
+            path = os.path.join(exp.logger.log_dir, "volumes",
+                                "latest_volume.html")
+            fig.write_html(path)
+            fig = plot_volume_slice(pred_qs, pred_ys, self.samples)
+            path = os.path.join(exp.logger.log_dir, "volumes",
+                                f"epoch_{exp.current_epoch}" + \
+                                f"_batch_{batch_idx}_sliced.html")
+            fig.write_html(path)
+            path = os.path.join(exp.logger.log_dir, "volumes",
+                                "latest_slice.html")
             fig.write_html(path)
 
 # adapted from https://plotly.com/python/visualizing-mri-volume-slices/

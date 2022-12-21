@@ -4,8 +4,6 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-# from einops import rearrange
-# from siren_pytorch import SirenNet, SirenWrapper
 
 from cusanus.pytypes import *
 
@@ -38,7 +36,7 @@ class SirenNet(nn.Module):
                  theta_out:int,
                  depth:int,
                  w0 = 1.0,
-                 w0_initial = 10.0,
+                 w0_initial = 15.0,
                  c = 6.0,
                  use_bias = True,
                  final_activation = nn.Sigmoid):
@@ -119,13 +117,18 @@ class ImplicitNeuralModule(nn.Module):
                  out: int = 1,
                  hidden: int = 256,
                  mod: int = 24,
-                 depth: int = 5) -> None:
+                 depth: int = 5,
+                 w0_initial:float=15.0,
+                 w0:float=1.0,
+                 c:float=6.0) -> None:
         super().__init__()
         self.hidden = hidden
         self.mod = mod
         # Siren Network - weights refered to as `theta`
         # optimized during outer loop
-        self.theta = SirenNet(q_in, hidden, out, depth)
+        self.theta = SirenNet(q_in, hidden, out, depth,
+                              w0 = w0, c = c,
+                              w0_initial = w0_initial)
         # Modulation FC network - refered to as psi
         # psi is initialize with default weights
         # and is not optimized

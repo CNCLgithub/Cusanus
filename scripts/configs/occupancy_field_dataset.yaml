@@ -1,0 +1,14 @@
+sphere:
+    train:
+        n_shapes: 2000
+        k_queries: 1000
+        r_min: 0.75
+        r_max: 1.0
+        sigma: 3.0
+mesh:
+    train:
+        n_shapes: 5000
+        k_queries: 1000
+        delta_y: 0.1
+        delta_size: 0.2
+        qsigma: 1.0
