@@ -116,9 +116,5 @@ class MeshGeometryDataset(OccupancyFieldDataset):
 
 
 def mesh_occupancy_field(mesh, qs: np.ndarray):
-    #NOTE: Points OUTSIDE the mesh will have NEGATIVE distance
-    # Points within tol.merge of the surface will have POSITIVE distance
-    # Points INSIDE the mesh will have POSITIVE distance
-    ds = trimesh.proximity.signed_distance(mesh, qs)
-    bs = np.array(ds) >= 0
+    bs = mesh.contains(qs)
     return bs.astype(np.float32)

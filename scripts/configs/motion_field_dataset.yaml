@@ -1,2 +1,4 @@
 train:
     n_scenes: 10000
+    segment_dur: 2000.0
+    max_sim_dur: 5.0

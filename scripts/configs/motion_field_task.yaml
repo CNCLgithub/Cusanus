@@ -1,0 +1,28 @@
+manual_seed: 1234
+
+arch_params:
+    q_in: 4
+    out: 1
+    hidden: 256
+    mod: 64
+    depth: 5
+    w0_initial: 15.0
+    w0: 1.0
+    c: 6.0
+
+task_params:
+    inner_steps: 5
+    lr: 0.0001
+    weight_decay: 0.0
+    sched_gamma: 0.9
+    lr_inner: 0.001
+
+loader_params:
+  batch_size: 64
+  num_workers: 4
+
+trainer_params:
+  max_epochs: 20
+
+logging_params:
+  save_dir: "/spaths/checkpoints"

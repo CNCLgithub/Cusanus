@@ -6,6 +6,7 @@ import argparse
 import torch
 
 from cusanus.datasets import write_ffcv, KinematicsFieldDataset
+from cusanus.utils.visualization import plot_motion_trace
 
 name = 'motion_field'
 
@@ -24,6 +25,11 @@ def main():
         config = yaml.safe_load(file)
 
     d = KinematicsFieldDataset(**config['train'])
+    # qs, ys = d[0]
+    # qs = qs[:d.segment_steps]
+    # ys = ys[:d.segment_steps]
+    # fig = plot_motion_trace(qs, ys)
+    # fig.write_html('/spaths/datasets/motion.html')
     dpath = f"/spaths/datasets/{name}_train_dataset.beton"
     d.write_ffcv(dpath, num_workers = args.num_workers)
 
