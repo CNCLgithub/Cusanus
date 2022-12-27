@@ -7,8 +7,6 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from ffcv.loader import Loader
-
 from cusanus.archs import ImplicitNeuralModule
 from cusanus.tasks import ImplicitNeuralField
 from cusanus.datasets import load_ffcv, KinematicsFieldDataset
@@ -41,7 +39,7 @@ def main():
                                                                 "checkpoints"),
                                          monitor= "loss",
                                          save_last=True),
-                         RenderMotion(batch_step = 50)
+                         RenderMotion(batch_step = 500)
 
                      ],
                      accelerator = 'auto',

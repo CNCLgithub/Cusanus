@@ -79,7 +79,7 @@ class RenderMotion(pl.Callback):
                  nt:int=10,
                  nxyz:int=30,
                  batch_step:int=5,
-                 delta:float=2.5):
+                 delta:float=5.0):
         super().__init__()
         self.nt = nt
         self.nxyz = nxyz
@@ -104,6 +104,12 @@ class RenderMotion(pl.Callback):
                                 f"epoch_{exp.current_epoch}" + \
                                 f"_batch_{batch_idx}.html")
             fig.write_html(path)
+            # fig = plot_motion_trace(qs.detach().cpu(),
+            #                         ys.detach().cpu())
+            # path = os.path.join(exp.logger.log_dir, "volumes",
+            #                     f"epoch_{exp.current_epoch}" + \
+            #                     f"_batch_{batch_idx}_gt.html")
+            # fig.write_html(path)
 
 def plot_volume(qs, ys, **plot_args):
     fig = go.Figure(data=go.Volume(
@@ -220,6 +226,7 @@ def plot_volume_slice(qs:Tensor, ys:Tensor, n : int):
 def plot_motion_trace(qs, ys, **plot_args):
     fig = go.Figure(data=go.Scatter3d(
         x=qs[:,1], y=qs[:,2], z=qs[:,3],
+        opacity=ys,
         marker=dict(
             size=4,
             color=qs[:, 0],
@@ -249,7 +256,7 @@ def plot_motion_volumes(qs:Tensor, ys:Tensor, t:int,
             # isomin=-5.0,
             # isomax=3.0,
             opacity=0.2, # needs to be small to see through all surfaces
-            surface_count=10, # needs to be a large number for good volume rendering
+            surface_count=15, # needs to be a large number for good volume rendering
             # autocolorscale = True,
             **plot_args,
         ),
@@ -265,7 +272,7 @@ def plot_motion_volumes(qs:Tensor, ys:Tensor, t:int,
         # isomin=0-5.0,
         # isomax=3.0,
         opacity=0.2, # needs to be small to see through all surfaces
-        surface_count=10, # needs to be a large number for good volume rendering
+        surface_count=15, # needs to be a large number for good volume rendering
         # autocolorscale = True,
         **plot_args,
         ))

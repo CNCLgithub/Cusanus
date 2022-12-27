@@ -120,15 +120,18 @@ class ImplicitNeuralModule(nn.Module):
                  depth: int = 5,
                  w0_initial:float=15.0,
                  w0:float=1.0,
-                 c:float=6.0) -> None:
+                 c:float=6.0,
+                 sigmoid:bool = True) -> None:
         super().__init__()
         self.hidden = hidden
         self.mod = mod
         # Siren Network - weights refered to as `theta`
         # optimized during outer loop
+        final_activation = nn.Sigmoid if sigmoid else nn.ReLU
         self.theta = SirenNet(q_in, hidden, out, depth,
                               w0 = w0, c = c,
-                              w0_initial = w0_initial)
+                              w0_initial = w0_initial,
+                              final_activation = final_activation)
         # Modulation FC network - refered to as psi
         # psi is initialize with default weights
         # and is not optimized
