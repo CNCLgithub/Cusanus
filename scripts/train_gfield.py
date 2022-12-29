@@ -7,21 +7,22 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
+from ffcv.loader import Loader
+
 from cusanus.archs import ImplicitNeuralModule
 from cusanus.tasks import ImplicitNeuralField
-from cusanus.datasets import load_ffcv, KinematicsFieldDataset
-from cusanus.utils.visualization import RenderMotion
+from cusanus.utils import RenderGField
 
 
-task_name = 'motion_field'
-dataset_name = 'motion_field'
+task_name = 'gfield'
+dataset_name = 'gfield'
 
 def main():
     with open(f"/project/scripts/configs/{task_name}_task.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
     logger = CSVLogger(save_dir=config['logging_params']['save_dir'],
-                       name= task_name)
+                       name= f"occupancy_field")
 
     # For reproducibility
     seed_everything(config['manual_seed'], True)
@@ -39,7 +40,7 @@ def main():
                                                                 "checkpoints"),
                                          monitor= "loss",
                                          save_last=True),
-                         RenderMotion(batch_step = 500)
+                         RenderGField(batch_step = 50)
 
                      ],
                      accelerator = 'auto',

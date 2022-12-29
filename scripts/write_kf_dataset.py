@@ -5,12 +5,11 @@ import yaml
 import argparse
 import torch
 
-from ffcv.loader import Loader
-
 from cusanus.datasets import write_ffcv
-from cusanus.datasets import MeshGeometryDataset, SphericalGeometryDataset
+from cusanus.datasets import KFieldDataset, SceneDataset, SimDataset
+from cusanus.utils.visualization import plot_motion_trace
 
-name = 'occupancy_field'
+name = 'kfield'
 
 def main():
     parser = argparse.ArgumentParser(
@@ -19,19 +18,23 @@ def main():
     )
     parser.add_argument('--num_workers', type = int,
                         help = 'Number of write workers',
-                        default = 4)
+                        default = -1)
     args = parser.parse_args()
 
 
     with open(f"/project/scripts/configs/{name}_dataset.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
-    # dataset is procedural so no source file
-    d1 = MeshGeometryDataset(**config['mesh']['train'])
-    d2 = SphericalGeometryDataset(**config['sphere']['train'])
-    dc = torch.utils.data.ConcatDataset([d1, d2])
+    scenes = SceneDataset(**config['scenes'])
+    simulations = SimDataset(scenes, **config['simulations'])
+    d = KFieldDataset(simulations, **config['kfield'])
+    # qs, ys = d[0]
+    # qs = qs[:d.segment_steps]
+    # ys = ys[:d.segment_steps]
+    # fig = plot_motion_trace(qs, ys)
+    # fig.write_html('/spaths/datasets/motion.html')
     dpath = f"/spaths/datasets/{name}_train_dataset.beton"
-    write_ffcv(dc, d1.k_queries, dpath)
+    d.write_ffcv(dpath, num_workers = args.num_workers)
 
 if __name__ == '__main__':
     main()

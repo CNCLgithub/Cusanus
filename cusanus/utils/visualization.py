@@ -33,7 +33,7 @@ def aggregrate_depth_scans(qs : Tensor, ps : Tensor,
                                        nrow = int(ny**(0.5)))
 
 
-class RenderGeometry(pl.Callback):
+class RenderGField(pl.Callback):
     def __init__(self,
                  samples:int=30,
                  batch_step:int=5,
@@ -74,7 +74,7 @@ class RenderGeometry(pl.Callback):
                                 "latest_slice.html")
             fig.write_html(path)
 
-class RenderMotion(pl.Callback):
+class RenderKField(pl.Callback):
     def __init__(self,
                  nt:int=10,
                  nxyz:int=30,

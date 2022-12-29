@@ -8,7 +8,7 @@ from cusanus.datasets import FieldDataset
 from cusanus.utils import grids_along_depth
 from cusanus.utils.meshes import sheered_rect_prism, ramp_mesh
 
-class OccupancyFieldDataset(FieldDataset, ABC):
+class GFieldDataset(FieldDataset, ABC):
     @property
     def qsize(self):
         return 3
@@ -16,7 +16,7 @@ class OccupancyFieldDataset(FieldDataset, ABC):
     def ysize(self):
         return 1
 
-class SphericalGeometryDataset(OccupancyFieldDataset):
+class SphericalGFieldDataset(GFieldDataset):
 
     # inheriting pytorch dataset; return vector of object and gstate
     def __init__(self, n_shapes:int = 1000, k_queries:int = 100,
@@ -51,7 +51,7 @@ def spherical_occupancy_field(r: float, qs: np.ndarray):
     ys = bs.astype(np.float32)
     return ys
 
-class MeshGeometryDataset(OccupancyFieldDataset):
+class MeshGFieldDataset(GFieldDataset):
 
     # inheriting pytorch dataset; return vector of object and gstate
     def __init__(self, n_shapes:int = 1000, k_queries:int = 100,
