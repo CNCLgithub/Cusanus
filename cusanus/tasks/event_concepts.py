@@ -10,14 +10,10 @@ from functorch import vmap, make_functional_with_buffers, grad
 from cusanus.pytypes import *
 from cusanus.archs import ImplicitNeuralModule, LatentModulation
 
-class ImplicitNeuralField(pl.LightningModule):
-    """Implements a generic task implicit neural fields
+class EventConcepts(pl.LightningModule):
+    """Training schema for event concepts
 
-    Arguments:
-        inr: ImplicitNeuralModule, INR architecture
-        lr: float = 0.001, learning rate
-        weight_decay: float = 0.001
-        sched_gamma: float = 0.8
+    TODO
     """
 
     def __init__(self,
@@ -29,9 +25,18 @@ class ImplicitNeuralField(pl.LightningModule):
                  sched_gamma:float = 0.8) -> None:
         super().__init__()
         self.save_hyperparameters(ignore = 'inr')
-        self.inr = inr
+        self.Q = Q
+        self.S = S
+        self.C = C
+        self.U = U
 
-    def initialize_modulation(self):
+    def initialize_smod(self):
+        self.initialize_modulation(self.S.mod)
+
+    def initialize_smod(self):
+        self.initialize_modulation(self.S.mod)
+
+    def initialize_modulation(self, d:int):
         m = LatentModulation(self.inr.mod)
         m.to(self.device)
         m.train()
