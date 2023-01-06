@@ -9,12 +9,12 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from cusanus.archs import ImplicitNeuralModule
 from cusanus.tasks import ImplicitNeuralField
-from cusanus.datasets import load_ffcv, KinematicsFieldDataset
-from cusanus.utils.visualization import RenderMotion
+from cusanus.datasets import load_ffcv
+from cusanus.utils.visualization import RenderKField
 
 
-task_name = 'motion_field'
-dataset_name = 'motion_field'
+task_name = 'kfield'
+dataset_name = 'kfield'
 
 def main():
     with open(f"/project/scripts/configs/{task_name}_task.yaml", 'r') as file:

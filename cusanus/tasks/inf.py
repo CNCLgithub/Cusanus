@@ -59,8 +59,6 @@ class ImplicitNeuralField(pl.LightningModule):
         # Compute the maml loss by summing together the returned losses.
         mod_losses = torch.mean(vmap(vloss)(qs, ys))
         self.log('loss', mod_losses.item())
-        self.log('avg_gt_ys', torch.mean(ys.detach()).item(),
-                 prog_bar=True)
         return mod_losses # overriding `backward`. See above
 
     def fit_modulation(self, qs:Tensor, ys:Tensor):

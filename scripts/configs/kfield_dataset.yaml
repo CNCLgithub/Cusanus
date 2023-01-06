@@ -1,7 +1,8 @@
 scenes:
     n_scenes: 20000
 simulations:
-    max_sim_dur: 5.0
+    max_dur: 5.0
 kfield:
     segment_dur: 2000.0
-    k_per_frame: 50
+    k_per_frame: 10
+    noise_scale: 10.0

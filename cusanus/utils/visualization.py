@@ -79,7 +79,7 @@ class RenderKField(pl.Callback):
                  nt:int=10,
                  nxyz:int=30,
                  batch_step:int=5,
-                 delta:float=5.0):
+                 delta:float=10.0):
         super().__init__()
         self.nt = nt
         self.nxyz = nxyz

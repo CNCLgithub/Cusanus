@@ -137,7 +137,7 @@ class SimDataset(Dataset):
 
         pparams = p.getPhysicsEngineParameters(physicsClientId = cid)
         delta_t = pparams['fixedTimeStep']
-        n = np.ceil(self.max_sim_dur / delta_t).astype(int)
+        n = np.ceil(self.max_dur / delta_t).astype(int)
 
         if self.debug:
             # add one step to resolve any initial forces
@@ -157,7 +157,7 @@ class SimDataset(Dataset):
         position = np.empty((n, 3))
         # velocity = np.empty((n, 3))
 
-        while dur < self.max_sim_dur:
+        while dur < self.max_dur:
             p.stepSimulation(physicsClientId = cid)
             pos, _ = p.getBasePositionAndOrientation(sphere_id,
                                                      physicsClientId = cid)
@@ -169,6 +169,7 @@ class SimDataset(Dataset):
             dur += delta_t
             steps += 1
 
+        position = position[:steps]
         # disconnect
         p.disconnect(physicsClientId = cid)
         return (ramp, obstacle, sphere), position

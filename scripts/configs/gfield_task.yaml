@@ -9,6 +9,7 @@ arch_params:
     w0_initial: 15.0
     w0: 1.0
     c: 6.0
+    sigmoid: 1
 
 task_params:
     inner_steps: 5
