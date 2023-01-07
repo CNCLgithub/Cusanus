@@ -1,22 +1,23 @@
 manual_seed: 1234
 
 arch_params:
-    q_in: 4
-    out: 1
-    hidden: 256
-    mod: 16
-    depth: 5
-    w0_initial: 5.0
-    w0: 1.0
-    c: 6.0
-    sigmoid: 1
+    kdim: 16
+    qspline_params:
+       hidden: 64
+       depth: 3
+    sigma_params:
+        hidden: 64
+        depth: 5
+        w0_initial: 5.0
+        w0: 1.0
+        c: 6.0
 
 task_params:
     inner_steps: 4
-    lr: 0.0005
+    lr: 0.00001
     weight_decay: 0.0
     sched_gamma: 0.9
-    lr_inner: 0.01
+    lr_inner: 0.001
 
 loader_params:
   batch_size: 24

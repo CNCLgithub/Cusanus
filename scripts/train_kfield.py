@@ -7,8 +7,8 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from cusanus.archs import ImplicitNeuralModule
-from cusanus.tasks import ImplicitNeuralField
+from cusanus.archs import PQSplineModule
+from cusanus.tasks import KSplineField
 from cusanus.datasets import load_ffcv
 from cusanus.utils.visualization import RenderKField
 
@@ -27,9 +27,9 @@ def main():
     seed_everything(config['manual_seed'], True)
 
     # initialize networks and task
-    arch = ImplicitNeuralModule(**config['arch_params'])
+    arch = PQSplineModule(**config['arch_params'])
     arch.train()
-    task = ImplicitNeuralField(arch, **config['task_params'])
+    task = KSplineField(arch, **config['task_params'])
 
     runner = Trainer(logger=logger,
                      callbacks=[

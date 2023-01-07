@@ -6,8 +6,6 @@ import pybullet as p
 
 from cusanus.pytypes import *
 from cusanus.datasets import FieldDataset, SimDataset
-from cusanus.utils.meshes import sample_ramp, sample_obstacle
-from cusanus.utils.physics import mesh_to_bullet, sphere_to_bullet
 
 class KFieldDataset(FieldDataset):
 
