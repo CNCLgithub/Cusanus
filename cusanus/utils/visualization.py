@@ -93,23 +93,49 @@ class RenderKField(pl.Callback):
             qs = qs[0]
             ys = ys[0]
             m = exp.fit_modulation(qs, ys)
-            pred_qs = motion_grids(self.nt,
-                                   self.nxyz,
-                                   delta = self.delta)
-            pred_qs = pred_qs.to(exp.device)
-            pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
-            pred_qs = pred_qs.detach().cpu()
-            fig = plot_motion_volumes(pred_qs, pred_ys, self.nt)
+            _, loc, std = exp.eval_modulation(m, qs)
+            loc = loc.detach().cpu()
+            std = torch.sum(std.detach().cpu(),
+                            axis = 1)
+            std *= 1000.0
+            qs = qs.detach().cpu()
+            t = qs[:, 0]
+            xyz = qs[:, 1:]
+            fig = go.Figure(
+                data=[go.Scatter3d(
+                    x=loc[:,0],
+                    y=t,
+                    z=loc[:,2],
+                    marker=dict(
+                        size=std,
+                        color=t,
+                        colorscale='Sunset',
+                        opacity=0.4
+                    ),
+                    line=dict(
+                        colorscale='Sunset',
+                        color = t,
+                        width=20.0,
+                    )
+                ),
+                go.Scatter3d(
+                    x=xyz[:,0],
+                    y=t,
+                    z=xyz[:,2],
+                    mode='markers',
+                    marker=dict(
+                        size=10.,
+                        color=t,
+                        colorscale='Sunset',
+                        opacity=1.0)),])
+            fig.update_scenes(aspectmode = 'data')
+            # fig.update_scenes(aspectratio = {'x': 1.0,
+            #                                  'y' : 1.0,
+            #                                  'z':1.0})
             path = os.path.join(exp.logger.log_dir, "volumes",
                                 f"epoch_{exp.current_epoch}" + \
                                 f"_batch_{batch_idx}.html")
             fig.write_html(path)
-            # fig = plot_motion_trace(qs.detach().cpu(),
-            #                         ys.detach().cpu())
-            # path = os.path.join(exp.logger.log_dir, "volumes",
-            #                     f"epoch_{exp.current_epoch}" + \
-            #                     f"_batch_{batch_idx}_gt.html")
-            # fig.write_html(path)
 
 def plot_volume(qs, ys, **plot_args):
     fig = go.Figure(data=go.Volume(

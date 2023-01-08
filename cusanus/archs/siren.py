@@ -59,6 +59,14 @@ class SirenNet(nn.Module):
                                               bias = use_bias, activation = False),
                                         final_activation())
 
+    def forward(self, x:Tensor):
+        for l in range(self.depth - 1):
+            x = self.layers[l](x)
+        x = self.last_layer(x)
+        return x
+
+class ModulatedSirenNet(SirenNet):
+
     def forward(self, x:Tensor, phi:Tensor):
         for l in range(self.depth - 1):
             x = self.layers[l](x) + phi[l]
@@ -127,11 +135,11 @@ class ImplicitNeuralModule(nn.Module):
         self.mod = mod
         # Siren Network - weights refered to as `theta`
         # optimized during outer loop
-        final_activation = nn.Sigmoid if sigmoid else nn.ReLU
-        self.theta = SirenNet(q_in, hidden, out, depth,
-                              w0 = w0, c = c,
-                              w0_initial = w0_initial,
-                              final_activation = final_activation)
+        act = nn.Sigmoid if sigmoid else nn.Identity
+        self.theta = ModulatedSirenNet(q_in, hidden, out, depth,
+                                       w0 = w0, c = c,
+                                       w0_initial = w0_initial,
+                                       final_activation = act)
         # Modulation FC network - refered to as psi
         # psi is initialize with default weights
         # and is not optimized

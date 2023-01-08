@@ -5,7 +5,7 @@ from functorch import vmap
 from functools import partial
 
 from cusanus.pytypes import *
-from cusanus.archs import ImplicitNeuralModule
+from cusanus.archs import ImplicitNeuralModule, SirenNet
 
 
 def qspline(a: Tensor, b:Tensor, c: Tensor, t: Tensor):
@@ -17,36 +17,54 @@ def eval_spline_lpdf(loc:Tensor, sigma:Tensor, value:Tensor):
     log_scale = torch.log(sigma)
     return -((value - loc) ** 2) / (2 * var) - log_scale - math.log(math.sqrt(2 * math.pi))
 
-class QSplineModule(nn.Module):
-
-    def __init__(self,
-                 kdim:int=16,
-                 hidden:int = 64,
-                 depth:int = 3):
-
-        super().__init__()
-        # Hidden layers
+def _fc_layers(indim:int, outdim:int, hidden:int, depth:int):
         layers = []
-        for l in range(depth):
+        for l in range(depth-1):
             layer = nn.Sequential(
-                nn.Linear(kdim if l == 0 else hidden,
+                nn.Linear(indim if l == 0 else hidden,
                           hidden),
                 nn.ReLU())
             layers.append(layer)
-        self.layers = nn.Sequential(*layers)
+        layers.append(nn.Linear(hidden, outdim))
+        return nn.Sequential(*layers)
+
+class QSplineModule(nn.Module):
+
+    def __init__(self,
+                 kdim:int,
+                 hidden:int,
+                 qdepth:int,
+                 siren_params:dict):
+
+        super().__init__()
+        # Hidden layers
+        # layers = []
+        # for l in range(depth):
+        #     layer = nn.Sequential(
+        #         nn.Linear(kdim if l == 0 else hidden,
+        #                   hidden),
+        #         nn.ReLU())
+        #     layers.append(layer)
+        # self.layers = nn.Sequential(*layers)
+        self.mod = kdim
+        self.layers = SirenNet(theta_in = kdim,
+                               theta_hidden = hidden,
+                               theta_out = hidden,
+                               final_activation = nn.ReLU,
+                               **siren_params)
 
         # output ABCs for qspline
-        self.X = nn.Linear(hidden, 3)
-        self.Y = nn.Linear(hidden, 3)
-        self.Z = nn.Linear(hidden, 3)
+        self.X = _fc_layers(hidden, 3, hidden, qdepth)
+        self.Y = _fc_layers(hidden, 3, hidden, qdepth)
+        self.Z = _fc_layers(hidden, 3, hidden, qdepth)
 
     def forward(self, kmod):
         hidden = self.layers(kmod)
         xa,xb,xc = self.X(hidden)
         ya,yb,yc = self.Y(hidden)
         za,zb,zc = self.Z(hidden)
-        yt = partial(qspline, ya,yb,yc)
         xt = partial(qspline, xa,xb,xc)
+        yt = partial(qspline, ya,yb,yc)
         zt = partial(qspline, za,zb,zc)
         return (xt,yt,zt)
 
@@ -54,16 +72,17 @@ class PQSplineModule(nn.Module):
 
     def __init__(self,
                  kdim:int,
+                 hidden:int,
                  qspline_params:dict,
                  sigma_params:dict):
 
         super().__init__()
         # qspline for mean
         self.qspline = QSplineModule(kdim = kdim,
+                                     hidden = hidden,
                                      **qspline_params)
 
         # variance INR
-        # TODO: ensure non-zero output
         self.sigma = ImplicitNeuralModule(q_in = 1,
                                           out = 3,
                                           mod = kdim,
@@ -75,22 +94,15 @@ class PQSplineModule(nn.Module):
         t = qs[:, 0].unsqueeze(1)
         # b x 3
         xyz = qs[:, 1:]
-
         xt, yt, zt = self.qspline(mod)
         # b x 3
         loc = torch.cat([xt(t), yt(t), zt(t)], axis = 1)
         # b x 3
-        sigma = self.sigma(t, mod) + 0.01
-
+        sigma = self.sigma(t, mod)
+        std = torch.exp(0.5 * sigma)
+        eps = torch.randn_like(std)
+        ys = eps * std + loc
         # lpdfs = vmap(eval_spline_lpdf)(loc, sigma, xyz)
-        lpdfs = eval_spline_lpdf(loc, sigma, xyz)
-
-        # print(t.shape)
-        # print(loc)
-        # print(loc.shape)
-        # print(sigma)
-        # print(sigma.shape)
-        # print(lpdfs)
-        # raise ValueError()
+        # lpdfs = eval_spline_lpdf(loc, sigma, xyz)
         # REVIEW: could also return spline partials
-        return lpdfs, loc, sigma
+        return ys, loc, std

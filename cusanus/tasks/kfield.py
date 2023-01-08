@@ -2,7 +2,7 @@ import torch
 from torch import optim
 import pytorch_lightning as pl
 from functorch import make_functional
-from torch.nn.functional import mse_loss
+from torch.nn.functional import mse_loss, l1_loss
 
 from cusanus.pytypes import *
 from cusanus.archs import PQSplineModule, LatentModulation
@@ -30,7 +30,8 @@ class KSplineField(ImplicitNeuralField):
         self.module = module
 
     def initialize_modulation(self):
-        m = LatentModulation(self.module.sigma.mod)
+        # m = LatentModulation(self.module.sigma.mod)
+        m = LatentModulation(self.module.qspline.mod)
         m.to(self.device)
         # m.train()
         return make_functional(m)
@@ -38,13 +39,12 @@ class KSplineField(ImplicitNeuralField):
     def pred_loss(self, qs: Tensor, ys: Tensor, pred):
         # HACK: `ys` is ignored
         xyz = qs[:, 1:]
-        logp, loc, sigma = pred
-        # return torch.mean(-logp) + torch.mean(sigma)
-        return mse_loss(xyz, loc) + torch.mean(sigma)
-
-    def eval_modulation(self, m, qs:Tensor):
-        logp, _, _ = super().eval_modulation(m, qs)
-        return logp
+        pred_ys, loc, std = pred
+        rec_loss = torch.mean(l1_loss(xyz, pred_ys))
+        var_loss = torch.mean(std)
+        # print('losses')
+        # print(rec_loss)
+        return rec_loss + 0.1 * var_loss
 
     def configure_optimizers(self):
 

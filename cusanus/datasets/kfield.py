@@ -59,7 +59,7 @@ class KFieldDataset(FieldDataset):
                       dtype = np.float32)
         for t in range(self.segment_frames):
             tn = t / self.segment_frames
-            ks = gt_kinematics[t]
+            ks = gt_kinematics[t] / np.array([3., 1., 10.0])
             noise = np.random.normal(0.0, self.noise_scale,
                                      size = (self.k_per_frame,
                                              ks.shape[0]))

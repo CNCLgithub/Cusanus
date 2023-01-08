@@ -28,11 +28,11 @@ def main():
     scenes = SceneDataset(**config['scenes'])
     simulations = SimDataset(scenes, **config['simulations'])
     d = KFieldDataset(simulations, **config['kfield'])
-    # qs, ys = d[0]
-    # qs = qs[:d.segment_steps]
-    # ys = ys[:d.segment_steps]
-    # fig = plot_motion_trace(qs, ys)
-    # fig.write_html('/spaths/datasets/motion.html')
+    qs, ys = d[0]
+    # # qs = qs[:d.segment_steps]
+    # # ys = ys[:d.segment_steps]
+    # # fig = plot_motion_trace(qs, ys)
+    # # fig.write_html('/spaths/datasets/motion.html')
     dpath = f"/spaths/datasets/{name}_train_dataset.beton"
     d.write_ffcv(dpath, num_workers = args.num_workers)
 

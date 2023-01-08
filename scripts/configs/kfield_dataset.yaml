@@ -1,8 +1,9 @@
 scenes:
-    n_scenes: 2000
+    n_scenes: 10000
+    sphere_z_max: 6.0
 simulations:
-    max_dur: 5.0
+    max_dur: 7.0
 kfield:
     segment_dur: 2000.0
-    k_per_frame: 10
-    noise_scale: 1.0
+    k_per_frame: 5
+    noise_scale: 0.05

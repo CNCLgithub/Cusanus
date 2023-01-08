@@ -1,2 +1,5 @@
-from . siren import ImplicitNeuralModule, LatentModulation
+from . siren import (ImplicitNeuralModule,
+                     LatentModulation,
+                     SirenNet,
+                     ModulatedSirenNet)
 from . kmodule import PQSplineModule

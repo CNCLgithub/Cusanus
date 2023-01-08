@@ -16,7 +16,7 @@ class SceneDataset(Dataset):
                  delta_pos:float = 1.0,
                  delta_size:float = 0.1,
                  ramp_extents = [6.0, 1.0, 0.25],
-                 ramp_init_pos = [-2.0, 0., 0.0],
+                 ramp_init_pos = [0.0, 0., 0.0],
                  obs_extents = [1.5, 1, 2.5],
                  obstacle_init_pos = [2.75, 0., -0.5],
                  sphere_z_max = 7.0,
@@ -126,7 +126,7 @@ class SimDataset(Dataset):
         sphere_id = sphere_to_bullet(*sphere, cid)
 
         # configure dynamics
-        p.setGravity(0, 0, -self.gravity,
+        p.setGravity(0, 0, self.gravity,
                      physicsClientId = cid)
         p.changeDynamics(ramp_id, -1, mass=0.0, restitution=0.5,
                          physicsClientId = cid)
@@ -138,6 +138,8 @@ class SimDataset(Dataset):
         pparams = p.getPhysicsEngineParameters(physicsClientId = cid)
         delta_t = pparams['fixedTimeStep']
         n = np.ceil(self.max_dur / delta_t).astype(int)
+        # HACK
+        n += 1
 
         if self.debug:
             # add one step to resolve any initial forces

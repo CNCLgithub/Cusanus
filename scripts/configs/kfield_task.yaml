@@ -1,26 +1,32 @@
 manual_seed: 1234
 
 arch_params:
-    kdim: 16
+    kdim: 32
+    hidden: 128
     qspline_params:
-       hidden: 64
-       depth: 3
+        qdepth: 3
+        siren_params:
+            depth: 5
+            w0_initial: 30.0
+            w0: 2.0
+            c: 6.0
+
     sigma_params:
-        hidden: 64
+        hidden: 128
         depth: 5
-        w0_initial: 5.0
+        w0_initial: 10.0
         w0: 1.0
         c: 6.0
 
 task_params:
-    inner_steps: 4
+    inner_steps: 5
     lr: 0.00001
-    weight_decay: 0.0
-    sched_gamma: 0.9
-    lr_inner: 0.001
+    weight_decay: 0.001
+    sched_gamma: 0.95
+    lr_inner: 0.01
 
 loader_params:
-  batch_size: 24
+  batch_size: 128
   num_workers: 8
 
 trainer_params:
