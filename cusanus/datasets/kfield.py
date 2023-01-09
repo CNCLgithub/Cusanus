@@ -14,6 +14,7 @@ class KFieldDataset(FieldDataset):
                  k_per_frame:int = 5,
                  segment_dur:float = 2000.0,
                  noise_scale:float = 10.0,
+                 t_scale:float = 60.0,
                  ):
         self.simulations = sim_dataset
         self.k_per_frame = k_per_frame
@@ -27,6 +28,7 @@ class KFieldDataset(FieldDataset):
         self.steps_per_frame = steps_per_frame
         self._k_queries = nframes * k_per_frame
         self.noise_scale = noise_scale
+        self.t_scale = t_scale
 
     @property
     def qsize(self):
@@ -58,7 +60,7 @@ class KFieldDataset(FieldDataset):
         ys = np.empty((self.segment_frames, self.k_per_frame, self.ysize),
                       dtype = np.float32)
         for t in range(self.segment_frames):
-            tn = t / self.segment_frames
+            tn = t / self.t_scale
             ks = gt_kinematics[t] / np.array([3., 1., 10.0])
             noise = np.random.normal(0.0, self.noise_scale,
                                      size = (self.k_per_frame,

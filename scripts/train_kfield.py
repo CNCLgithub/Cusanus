@@ -43,7 +43,7 @@ def main():
 
                      ],
                      accelerator = 'auto',
-                     deterministic = True,
+                     inference_mode = False,
                      **config['trainer_params'])
 
     device = runner.device_ids[0] if torch.cuda.is_available() else None
@@ -54,11 +54,14 @@ def main():
     dpath_train = f"/spaths/datasets/{dataset_name}_train_dataset.beton"
     train_loader = load_ffcv(dpath_train, device,
                              **config['loader_params'])
+    dpath_val = f"/spaths/datasets/{dataset_name}_val_dataset.beton"
+    val_loader = load_ffcv(dpath_val, device,
+                           batch_size = 1)
 
     # BEGIN TRAINING
     Path(f"{logger.log_dir}/volumes").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
-    runner.fit(task, train_loader)
+    runner.fit(task, train_loader, val_loader)
 
 if __name__ == '__main__':
     main()

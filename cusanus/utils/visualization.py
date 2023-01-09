@@ -86,56 +86,51 @@ class RenderKField(pl.Callback):
         self.batch_step = batch_step
         self.delta = delta
 
-    def on_train_batch_end(self, trainer, exp, outputs, batch, batch_idx):
-        # Skip for all other epochs
-        if (batch_idx % self.batch_step) == 0:
-            (qs, ys) = batch
-            qs = qs[0]
-            ys = ys[0]
-            m = exp.fit_modulation(qs, ys)
-            _, loc, std = exp.eval_modulation(m, qs)
-            loc = loc.detach().cpu()
-            std = torch.sum(std.detach().cpu(),
-                            axis = 1)
-            std *= 1000.0
-            qs = qs.detach().cpu()
-            t = qs[:, 0]
-            xyz = qs[:, 1:]
-            fig = go.Figure(
-                data=[go.Scatter3d(
-                    x=loc[:,0],
-                    y=t,
-                    z=loc[:,2],
-                    marker=dict(
-                        size=std,
-                        color=t,
-                        colorscale='Sunset',
-                        opacity=0.4
-                    ),
-                    line=dict(
-                        colorscale='Sunset',
-                        color = t,
-                        width=20.0,
-                    )
+    def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (qs, ys) = batch
+        qs = qs[0]
+        ys = ys[0]
+        _, loc, std = outputs['pred']
+        loc = loc.detach().cpu()
+        std = torch.sum(std.detach().cpu(),
+                        axis = 1)
+        std *= 100.0
+        qs = qs.detach().cpu()
+        t = qs[:, 0]
+        xyz = qs[:, 1:]
+        fig = go.Figure(
+            data=[go.Scatter3d(
+                x=loc[:,0],
+                y=t,
+                z=loc[:,2],
+                marker=dict(
+                    size=std,
+                    color=t,
+                    colorscale='Sunset',
+                    opacity=0.4
                 ),
-                go.Scatter3d(
-                    x=xyz[:,0],
-                    y=t,
-                    z=xyz[:,2],
-                    mode='markers',
-                    marker=dict(
-                        size=10.,
-                        color=t,
-                        colorscale='Sunset',
-                        opacity=1.0)),])
-            fig.update_scenes(aspectmode = 'data')
-            # fig.update_scenes(aspectratio = {'x': 1.0,
-            #                                  'y' : 1.0,
-            #                                  'z':1.0})
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                f"epoch_{exp.current_epoch}" + \
-                                f"_batch_{batch_idx}.html")
-            fig.write_html(path)
+                line=dict(
+                    colorscale='Sunset',
+                    color = t,
+                    width=20.0,
+                )
+            ),
+            go.Scatter3d(
+                x=xyz[:,0],
+                y=t,
+                z=xyz[:,2],
+                mode='markers',
+                marker=dict(
+                    size=10.,
+                    color=t,
+                    colorscale='Sunset',
+                    opacity=1.0)),])
+        fig.update_scenes(aspectmode = 'data')
+        path = os.path.join(exp.logger.log_dir, "volumes",
+                            f"epoch_{exp.current_epoch}" + \
+                            f"_batch_{batch_idx}.html")
+        fig.write_html(path)
 
 def plot_volume(qs, ys, **plot_args):
     fig = go.Figure(data=go.Volume(

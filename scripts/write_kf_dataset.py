@@ -25,16 +25,18 @@ def main():
     with open(f"/project/scripts/configs/{name}_dataset.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
-    scenes = SceneDataset(**config['scenes'])
-    simulations = SimDataset(scenes, **config['simulations'])
-    d = KFieldDataset(simulations, **config['kfield'])
-    qs, ys = d[0]
-    # # qs = qs[:d.segment_steps]
-    # # ys = ys[:d.segment_steps]
-    # # fig = plot_motion_trace(qs, ys)
-    # # fig.write_html('/spaths/datasets/motion.html')
-    dpath = f"/spaths/datasets/{name}_train_dataset.beton"
-    d.write_ffcv(dpath, num_workers = args.num_workers)
+    for dname in ['train', 'val']:
+        c = config[dname]
+        scenes = SceneDataset(**c['scenes'])
+        simulations = SimDataset(scenes, **c['simulations'])
+        d = KFieldDataset(simulations, **c['kfield'])
+        qs, ys = d[0]
+        # # qs = qs[:d.segment_steps]
+        # # ys = ys[:d.segment_steps]
+        # # fig = plot_motion_trace(qs, ys)
+        # # fig.write_html('/spaths/datasets/motion.html')
+        dpath = f"/spaths/datasets/{name}_{dname}_dataset.beton"
+        d.write_ffcv(dpath, num_workers = args.num_workers)
 
 if __name__ == '__main__':
     main()

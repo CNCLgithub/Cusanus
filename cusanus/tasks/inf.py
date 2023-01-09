@@ -112,11 +112,16 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor):
 
     return (mfunc, new_mparams)
 
+def fit_and_eval(exp, qs:Tensor, ys:Tensor):
+    m = fit_modulation(exp, qs, ys)
+    pred = eval_modulation(exp, m, qs)
+    return pred
+
 def inner_modulation_loop(exp, qs: Tensor, ys: Tensor):
     m = fit_modulation(exp, qs, ys)
     # The final set of adapted parameters will induce some
     # final loss and accuracy on the query dataset.
     # These will be used to update the model's meta-parameters.
-    pred_ys = eval_modulation(exp, m, qs)
-    pred_loss = exp.pred_loss(qs, ys, pred_ys)
+    pred = eval_modulation(exp, m, qs)
+    pred_loss = exp.pred_loss(qs, ys, pred)
     return pred_loss

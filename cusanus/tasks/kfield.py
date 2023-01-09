@@ -8,6 +8,8 @@ from cusanus.pytypes import *
 from cusanus.archs import PQSplineModule, LatentModulation
 from cusanus.tasks import ImplicitNeuralField
 
+from cusanus.tasks.inf import fit_and_eval
+
 class KSplineField(ImplicitNeuralField):
     """Implements kinematic spline fields
 
@@ -45,6 +47,19 @@ class KSplineField(ImplicitNeuralField):
         # print('losses')
         # print(rec_loss)
         return rec_loss + 0.1 * var_loss
+
+    @torch.enable_grad()
+    @torch.inference_mode(False)
+    def validation_step(self, batch, batch_idx):
+        (qs, ys) = batch
+        qs = qs[0]
+        ys = ys[0]
+        pred = fit_and_eval(self,qs, ys)
+        pred_loss = self.pred_loss(qs, ys, pred).detach().cpu()
+        self.log('val_loss', pred_loss)
+        return {'loss' : pred_loss, 'pred' : pred}
+
+
 
     def configure_optimizers(self):
 
