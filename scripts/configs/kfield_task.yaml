@@ -26,7 +26,7 @@ task_params:
     lr_inner: 0.01
 
 loader_params:
-  batch_size: 128
+  batch_size: 256
   num_workers: 8
 
 trainer_params:

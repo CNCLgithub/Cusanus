@@ -32,20 +32,14 @@ class KSplineField(ImplicitNeuralField):
         self.module = module
 
     def initialize_modulation(self):
-        # m = LatentModulation(self.module.sigma.mod)
         m = LatentModulation(self.module.qspline.mod)
         m.to(self.device)
-        # m.train()
         return make_functional(m)
 
     def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-        # HACK: `ys` is ignored
-        xyz = qs[:, 1:]
         pred_ys, loc, std = pred
-        rec_loss = torch.mean(l1_loss(xyz, pred_ys))
-        var_loss = torch.mean(std)
-        # print('losses')
-        # print(rec_loss)
+        rec_loss = torch.mean(l1_loss(ys, pred_ys))
+        var_loss = torch.mean(torch.abs(std - 1.0))
         return rec_loss + 0.1 * var_loss
 
     @torch.enable_grad()

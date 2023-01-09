@@ -38,14 +38,6 @@ class QSplineModule(nn.Module):
 
         super().__init__()
         # Hidden layers
-        # layers = []
-        # for l in range(depth):
-        #     layer = nn.Sequential(
-        #         nn.Linear(kdim if l == 0 else hidden,
-        #                   hidden),
-        #         nn.ReLU())
-        #     layers.append(layer)
-        # self.layers = nn.Sequential(*layers)
         self.mod = kdim
         self.layers = SirenNet(theta_in = kdim,
                                theta_hidden = hidden,
@@ -91,18 +83,14 @@ class PQSplineModule(nn.Module):
 
     def forward(self, qs:Tensor, mod):
         # b x 1
-        t = qs[:, 0].unsqueeze(1)
-        # b x 3
-        xyz = qs[:, 1:]
         xt, yt, zt = self.qspline(mod)
         # b x 3
-        loc = torch.cat([xt(t), yt(t), zt(t)], axis = 1)
+        loc = torch.cat([xt(qs), yt(qs), zt(qs)],
+                        axis = 1)
         # b x 3
-        sigma = self.sigma(t, mod)
+        sigma = self.sigma(qs, mod)
         std = torch.exp(0.5 * sigma)
         eps = torch.randn_like(std)
         ys = eps * std + loc
-        # lpdfs = vmap(eval_spline_lpdf)(loc, sigma, xyz)
-        # lpdfs = eval_spline_lpdf(loc, sigma, xyz)
         # REVIEW: could also return spline partials
         return ys, loc, std

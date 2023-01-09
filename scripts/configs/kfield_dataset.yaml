@@ -5,9 +5,7 @@ train:
     simulations:
         max_dur: 7.0
     kfield:
-        segment_dur: 2000.0
-        k_per_frame: 5
-        noise_scale: 0.05
+        segment_dur: 500.0
 
 val:
     scenes:
@@ -16,6 +14,4 @@ val:
     simulations:
         max_dur: 7.0
     kfield:
-        segment_dur: 2500.0
-        k_per_frame: 3
-        noise_scale: 0.01
+        segment_dur: 500.0
