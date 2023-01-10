@@ -1,7 +1,7 @@
 manual_seed: 1234
 
 arch_params:
-    kdim: 96
+    kdim: 9
     hidden: 128
     qspline_params:
         abc_params:
@@ -29,18 +29,18 @@ arch_params:
         c: 6.0
 
 task_params:
-    inner_steps: 50
-    lr: 0.00001
+    inner_steps: 30
+    lr: 0.00005
     weight_decay: 0.01
     sched_gamma: 0.99
     lr_inner: 0.001
 
 loader_params:
-  batch_size: 1024
+  batch_size: 2048
   num_workers: 8
 
 trainer_params:
-  max_epochs: 20
+  max_epochs: 100
 
 logging_params:
   save_dir: "/spaths/checkpoints"

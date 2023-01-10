@@ -61,7 +61,7 @@ def main():
     # BEGIN TRAINING
     Path(f"{logger.log_dir}/volumes").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
-    runner.fit(task, train_loader, val_loader)
+    runner.fit(task, train_loader, val_loader, ckpt_path='last')
 
 if __name__ == '__main__':
     main()

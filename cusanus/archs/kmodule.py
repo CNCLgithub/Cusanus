@@ -62,19 +62,19 @@ class QSplineModule(nn.Module):
 
         super().__init__()
         # assert kdim % 3 == 0, f'qspline modulation ({kdim}) not divisible by 3'
-        # mdim = int(kdim / 3)
+        mdim = int(kdim / 3)
         self.mod = kdim
-        self.abc = SirenNet(theta_in = kdim,
+        self.abc = SirenNet(theta_in = mdim,
                             theta_hidden = hidden,
                             theta_out = 3,
                             final_activation = nn.Identity,
                             **abc_params)
-        self.rot = SirenNet(theta_in = kdim,
+        self.rot = SirenNet(theta_in = mdim,
                             theta_hidden = hidden,
                             theta_out = 3,
                             final_activation = Sine,
                             **rot_params)
-        self.shift = SirenNet(theta_in = kdim,
+        self.shift = SirenNet(theta_in = mdim,
                             theta_hidden = hidden,
                             theta_out = 3,
                             final_activation = nn.Identity,
@@ -82,10 +82,10 @@ class QSplineModule(nn.Module):
 
     def forward(self, m):
         # shared = self.shared(m)
-        # m1, m2, m3 = torch.chunk(shared, 3)
-        a,b,c = self.abc(m)
-        rx,ry,rz = self.rot(m)
-        sx,sy,sz = self.shift(m)
+        m1, m2, m3 = torch.chunk(m, 3)
+        a,b,c = self.abc(m1)
+        rx,ry,rz = self.rot(m2)
+        sx,sy,sz = self.shift(m3)
 
         # standardized quadratic
         av = column_vec(a)
