@@ -1,5 +1,6 @@
 from . siren import (ImplicitNeuralModule,
                      LatentModulation,
                      SirenNet,
-                     ModulatedSirenNet)
+                     ModulatedSirenNet,
+                     Sine)
 from . kmodule import PQSplineModule

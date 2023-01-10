@@ -5,11 +5,12 @@ from functorch import vmap
 from functools import partial
 
 from cusanus.pytypes import *
-from cusanus.archs import ImplicitNeuralModule, SirenNet
+from cusanus.archs import ImplicitNeuralModule, SirenNet, Sine
 
 
 def qspline(a: Tensor, b:Tensor, c: Tensor, t: Tensor):
-        return a * (t**2) + b * t + c
+    return (a * (t**2)) + (b * t) + c
+
 
 
 def eval_spline_lpdf(loc:Tensor, sigma:Tensor, value:Tensor):
@@ -28,36 +29,80 @@ def _fc_layers(indim:int, outdim:int, hidden:int, depth:int):
         layers.append(nn.Linear(hidden, outdim))
         return nn.Sequential(*layers)
 
+def column_vec(x: Tensor):
+    v = torch.zeros((2,1),
+                    dtype=x.dtype,
+                    layout=x.layout,
+                    device=x.device)
+    return torch.cat([x.reshape(1,1), v]).squeeze()
+
+def rotation_matrix(a:Tensor,b:Tensor,c:Tensor):
+    sa = torch.sin(a)
+    ca = torch.cos(a)
+    sb = torch.sin(b)
+    cb = torch.cos(b)
+    sc = torch.sin(c)
+    cc = torch.cos(c)
+    m = torch.stack([
+            torch.stack([cb*cc, sa*sb*cc - ca*sc, ca*sb*cc+sa*sc]),
+            torch.stack([cb*sc, sa*sb*sc + ca*cc, ca*sb*sc-sa*cc]),
+            torch.stack([-sb  , sa*cb,            ca*cb         ])
+    ])
+    return m
+
+
 class QSplineModule(nn.Module):
 
     def __init__(self,
                  kdim:int,
                  hidden:int,
-                 qdepth:int,
-                 siren_params:dict):
+                 abc_params:dict,
+                 rot_params:dict,
+                 shift_params:dict):
 
         super().__init__()
-        # Hidden layers
+        # assert kdim % 3 == 0, f'qspline modulation ({kdim}) not divisible by 3'
+        # mdim = int(kdim / 3)
         self.mod = kdim
-        self.layers = SirenNet(theta_in = kdim,
-                               theta_hidden = hidden,
-                               theta_out = hidden,
-                               final_activation = nn.ReLU,
-                               **siren_params)
+        self.abc = SirenNet(theta_in = kdim,
+                            theta_hidden = hidden,
+                            theta_out = 3,
+                            final_activation = nn.Identity,
+                            **abc_params)
+        self.rot = SirenNet(theta_in = kdim,
+                            theta_hidden = hidden,
+                            theta_out = 3,
+                            final_activation = Sine,
+                            **rot_params)
+        self.shift = SirenNet(theta_in = kdim,
+                            theta_hidden = hidden,
+                            theta_out = 3,
+                            final_activation = nn.Identity,
+                            **shift_params)
 
-        # output ABCs for qspline
-        self.X = _fc_layers(hidden, 3, hidden, qdepth)
-        self.Y = _fc_layers(hidden, 3, hidden, qdepth)
-        self.Z = _fc_layers(hidden, 3, hidden, qdepth)
+    def forward(self, m):
+        # shared = self.shared(m)
+        # m1, m2, m3 = torch.chunk(shared, 3)
+        a,b,c = self.abc(m)
+        rx,ry,rz = self.rot(m)
+        sx,sy,sz = self.shift(m)
 
-    def forward(self, kmod):
-        hidden = self.layers(kmod)
-        xa,xb,xc = self.X(hidden)
-        ya,yb,yc = self.Y(hidden)
-        za,zb,zc = self.Z(hidden)
-        xt = partial(qspline, xa,xb,xc)
-        yt = partial(qspline, ya,yb,yc)
-        zt = partial(qspline, za,zb,zc)
+        # standardized quadratic
+        av = column_vec(a)
+        bv = column_vec(b)
+        cv = column_vec(c)
+
+        rotm = rotation_matrix(rx,ry,rz)
+
+        # rotated to 3d
+        xa, ya, za = torch.matmul(av, rotm)
+        xb, yb, zb = torch.matmul(bv, rotm)
+        xc, yc, zc = torch.matmul(cv, rotm)
+
+        # and shifted
+        xt = partial(qspline, xa,xb,xc + sx)
+        yt = partial(qspline, ya,yb,yc + sy)
+        zt = partial(qspline, za,zb,zc + sz)
         return (xt,yt,zt)
 
 class PQSplineModule(nn.Module):
@@ -74,12 +119,12 @@ class PQSplineModule(nn.Module):
                                      hidden = hidden,
                                      **qspline_params)
 
-        # variance INR
-        self.sigma = ImplicitNeuralModule(q_in = 1,
-                                          out = 3,
-                                          mod = kdim,
-                                          sigmoid = False,
-                                          **sigma_params)
+        # # variance INR
+        # self.sigma = ImplicitNeuralModule(q_in = 1,
+        #                                   out = 3,
+        #                                   mod = kdim,
+        #                                   sigmoid = False,
+        #                                   **sigma_params)
 
     def forward(self, qs:Tensor, mod):
         # b x 1
@@ -88,9 +133,9 @@ class PQSplineModule(nn.Module):
         loc = torch.cat([xt(qs), yt(qs), zt(qs)],
                         axis = 1)
         # b x 3
-        sigma = self.sigma(qs, mod)
-        std = torch.exp(0.5 * sigma)
-        eps = torch.randn_like(std)
-        ys = eps * std + loc
+        # sigma = self.sigma(qs, mod)
+        # std = torch.exp(0.5 * sigma)
+        # eps = torch.randn_like(std)
+        # ys = eps * std + loc
         # REVIEW: could also return spline partials
-        return ys, loc, std
+        return loc, loc, loc

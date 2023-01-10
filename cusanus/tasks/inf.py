@@ -87,7 +87,8 @@ def eval_modulation(exp, mod, qs : Tensor):
 
 # https://github.com/metaopt/torchopt/blob/main/examples/FuncTorch/maml_omniglot_vmap.py
 # borrowed from above
-def fit_modulation(exp, qs: Tensor, ys: Tensor):
+def fit_modulation(exp, qs: Tensor, ys: Tensor,
+                   inner_steps = None):
 
     # modulation in functorch form
     (mfunc, mparams) = exp.initialize_modulation()
@@ -102,8 +103,9 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor):
         l2_loss = torch.sum(mparams[0] ** 2)
         return pred_loss + l2_loss
 
+    steps = exp.hparams.inner_steps if inner_steps is None else inner_steps
     new_mparams = mparams
-    for _ in range(exp.hparams.inner_steps):
+    for _ in range(steps):
         grads = grad(compute_loss)(new_mparams)
         updates, opt_state = opt.update(grads, opt_state,
                                         inplace=False)
@@ -113,7 +115,7 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor):
     return (mfunc, new_mparams)
 
 def fit_and_eval(exp, qs:Tensor, ys:Tensor):
-    m = fit_modulation(exp, qs, ys)
+    m = fit_modulation(exp, qs, ys, 15)
     pred = eval_modulation(exp, m, qs)
     return pred
 

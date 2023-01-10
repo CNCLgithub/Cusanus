@@ -5,9 +5,8 @@ import yaml
 import argparse
 import torch
 
-from cusanus.datasets import write_ffcv
+from cusanus.datasets import write_ffcv, RunningStats
 from cusanus.datasets import KFieldDataset, SceneDataset, SimDataset
-from cusanus.utils.visualization import plot_motion_trace
 
 name = 'kfield'
 
@@ -29,12 +28,20 @@ def main():
         c = config[dname]
         scenes = SceneDataset(**c['scenes'])
         simulations = SimDataset(scenes, **c['simulations'])
-        d = KFieldDataset(simulations, **c['kfield'])
-        qs, ys = d[0]
-        # # qs = qs[:d.segment_steps]
-        # # ys = ys[:d.segment_steps]
-        # # fig = plot_motion_trace(qs, ys)
-        # # fig.write_html('/spaths/datasets/motion.html')
+        if dname == 'train':
+            d = KFieldDataset(simulations, **c['kfield'])
+            stats = RunningStats(3)
+            for i in range(min(len(d), 5000)):
+                print('step',i)
+                _, qs = d[i]
+                for xyz in qs:
+                    stats.push(xyz)
+            mean = stats.mean()
+            stdev = stats.standard_deviation()
+            print(f'Mean: {mean}, Std. Dev.: {stdev}')
+        d = KFieldDataset(simulations, **c['kfield'],
+                          y_mean = mean,
+                          y_std = stdev)
         dpath = f"/spaths/datasets/{name}_{dname}_dataset.beton"
         d.write_ffcv(dpath, num_workers = args.num_workers)
 

@@ -13,6 +13,8 @@ class KFieldDataset(FieldDataset):
                  sim_dataset:SimDataset,
                  segment_dur:float = 2000.0,
                  t_scale:float = 60.0,
+                 y_mean:np.ndarray = np.zeros(3),
+                 y_std:np.ndarray = np.ones(3),
                  ):
         self.simulations = sim_dataset
         segment_steps = np.floor(segment_dur / (1000/240)).astype(int)
@@ -25,6 +27,8 @@ class KFieldDataset(FieldDataset):
         self.steps_per_frame = steps_per_frame
         self._k_queries = nframes
         self.t_scale = t_scale
+        self.y_mean = y_mean
+        self.y_std = y_std
 
     @property
     def qsize(self):
@@ -57,7 +61,7 @@ class KFieldDataset(FieldDataset):
                       dtype = np.float32)
         for t in range(self.segment_frames):
             tn = t / self.t_scale
-            ks = gt_kinematics[t]
+            ks = (gt_kinematics[t] - self.y_mean) / self.y_std
             qs[t] = tn
             ys[t] = ks
 

@@ -89,40 +89,39 @@ class RenderKField(pl.Callback):
     def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
         (qs, ys) = batch
-        qs = qs[0]
-        ys = ys[0]
+        qs = qs[0].detach().cpu().squeeze()
+        ys = ys[0].detach().cpu()
         _, loc, std = outputs['pred']
         loc = loc.detach().cpu()
         std = torch.sum(std.detach().cpu(),
                         axis = 1)
-        std *= 100.0
-        t = qs.detach().cpu()
-        xyz = ys.detach().cpu()
+        std *= 50.0
         fig = go.Figure(
-            data=[go.Scatter3d(
+            data=[
+                go.Scatter3d(
                 x=loc[:,0],
-                y=t,
+                y=qs,
                 z=loc[:,2],
                 marker=dict(
-                    size=std,
-                    color=t,
+                    # size=std,
+                    color=qs,
                     colorscale='Sunset',
                     opacity=0.4
                 ),
                 line=dict(
                     colorscale='Sunset',
-                    color = t,
+                    color = qs,
                     width=20.0,
                 )
             ),
             go.Scatter3d(
-                x=xyz[:,0],
-                y=t,
-                z=xyz[:,2],
+                x=ys[:,0],
+                y=qs,
+                z=ys[:,2],
                 mode='markers',
                 marker=dict(
-                    size=10.,
-                    color=t,
+                    # size=10.,
+                    color=qs,
                     colorscale='Sunset',
                     opacity=1.0)),])
         fig.update_scenes(aspectmode = 'data')

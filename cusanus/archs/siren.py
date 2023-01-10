@@ -21,7 +21,8 @@ class Siren(nn.Module):
         super().__init__()
         self.linear = nn.Linear(dim_in, dim_out, bias = bias)
         nn.init.uniform_(self.linear.weight, a = -w_std, b = w_std)
-        nn.init.uniform_(self.linear.bias, a = -w_std, b = w_std)
+        if bias:
+            nn.init.uniform_(self.linear.bias, a = -w_std, b = w_std)
         self.activation = Sine(w0) if activation else nn.Identity()
 
     def forward(self, x:Tensor):
@@ -49,7 +50,7 @@ class SirenNet(nn.Module):
                 dim_in = theta_in if l == 0 else theta_hidden,
                 dim_out = theta_hidden,
                 w0 = w0_initial if l == 0 else w0,
-                w_std = w_std, # 1.0 / theta_in if l == 0 else w_std,
+                w_std = 1.0 / theta_in if l == 0 else w_std,
                 bias = use_bias,
                 activation = True,
             )

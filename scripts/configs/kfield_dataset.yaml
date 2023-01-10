@@ -1,7 +1,7 @@
 train:
     scenes:
-        n_scenes: 10000
-        sphere_z_max: 6.0
+        n_scenes: 100000
+        sphere_z_max: 7.0
     simulations:
         max_dur: 7.0
     kfield:
@@ -10,7 +10,7 @@ train:
 val:
     scenes:
         n_scenes: 10
-        sphere_z_max: 6.0
+        sphere_z_max: 7.0
     simulations:
         max_dur: 7.0
     kfield:
