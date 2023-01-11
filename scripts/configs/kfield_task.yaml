@@ -6,18 +6,18 @@ arch_params:
     qspline_params:
         abc_params:
             depth: 5
-            w0_initial: 5.0
+            w0_initial: 10.0
             w0: 1.0
             c: 6.0
             use_bias: 0
         rot_params:
             depth: 5
-            w0_initial: 5.0
+            w0_initial: 10.0
             w0: 1.0
             c: 6.0
         shift_params:
             depth: 5
-            w0_initial: 5.0
+            w0_initial: 10.0
             w0: 1.0
             c: 6.0
 
@@ -36,11 +36,11 @@ task_params:
     lr_inner: 0.001
 
 loader_params:
-  batch_size: 2048
+  batch_size: 3000
   num_workers: 8
 
 trainer_params:
-  max_epochs: 100
+  max_epochs: 200
 
 logging_params:
   save_dir: "/spaths/checkpoints"

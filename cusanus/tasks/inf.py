@@ -115,7 +115,7 @@ def fit_modulation(exp, qs: Tensor, ys: Tensor,
     return (mfunc, new_mparams)
 
 def fit_and_eval(exp, qs:Tensor, ys:Tensor):
-    m = fit_modulation(exp, qs, ys, 15)
+    m = fit_modulation(exp, qs, ys)
     pred = eval_modulation(exp, m, qs)
     return pred
 
