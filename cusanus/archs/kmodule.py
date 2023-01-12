@@ -58,51 +58,48 @@ class QSplineModule(nn.Module):
                  hidden:int,
                  abc_params:dict,
                  rot_params:dict,
-                 shift_params:dict):
+                 ):
 
         super().__init__()
-        # assert kdim % 3 == 0, f'qspline modulation ({kdim}) not divisible by 3'
-        mdim = int(kdim / 3)
+        # assert kdim % 2 == 0, f'qspline modulation ({kdim}) not divisible by 3'
+        # mdim = int(kdim / 2)
         self.mod = kdim
-        self.abc = SirenNet(theta_in = mdim,
-                            theta_hidden = hidden,
-                            theta_out = 3,
-                            final_activation = nn.Identity,
-                            **abc_params)
-        self.rot = SirenNet(theta_in = mdim,
-                            theta_hidden = hidden,
-                            theta_out = 3,
-                            final_activation = Sine,
-                            **rot_params)
-        self.shift = SirenNet(theta_in = mdim,
-                            theta_hidden = hidden,
-                            theta_out = 3,
-                            final_activation = nn.Identity,
-                            **shift_params)
+        self.abc = nn.Sequential(SirenNet(theta_in = kdim,
+                                          theta_hidden = hidden,
+                                          theta_out = hidden,
+                                          final_activation = nn.Identity,
+                                          **abc_params),
+                                 _fc_layers(hidden, 9, hidden, 3))
+        # self.rot = nn.Sequential(SirenNet(theta_in = mdim,
+        #                                   theta_hidden = hidden,
+        #                                   theta_out = hidden,
+        #                                   final_activation = nn.Identity,
+        #                                   **abc_params),
+        #                          _fc_layers(hidden, 27, hidden, 3))
+
+    def expand_coef(self, coef:Tensor, tb_angles:Tensor):
+        # [coef 0 0]
+        cv = column_vec(coef)
+        # 3x3 rotation matrix
+        # rotm = rotation_matrix(*tb_angles)
+        # coeff across 3 dimensions
+        return torch.matmul(cv, tb_angles)
 
     def forward(self, m):
-        # shared = self.shared(m)
-        m1, m2, m3 = torch.chunk(m, 3)
-        a,b,c = self.abc(m1)
-        rx,ry,rz = self.rot(m2)
-        sx,sy,sz = self.shift(m3)
+        # m1, m2 = torch.chunk(m, 2)
+        a,b,c = self.abc(m).reshape(3,3)
+        xa, ya, za = a
+        xb, yb, zb = b
+        xc, yc, zc = c
+        # ra,rb,rc = self.rot(m2).reshape(3,3,3)
 
-        # standardized quadratic
-        av = column_vec(a)
-        bv = column_vec(b)
-        cv = column_vec(c)
+        # xa, ya, za = self.expand_coef(a, ra)
+        # xb, yb, zb = self.expand_coef(b, rb)
+        # xc, yc, zc = self.expand_coef(c, rc)
 
-        rotm = rotation_matrix(rx,ry,rz)
-
-        # rotated to 3d
-        xa, ya, za = torch.matmul(av, rotm)
-        xb, yb, zb = torch.matmul(bv, rotm)
-        xc, yc, zc = torch.matmul(cv, rotm)
-
-        # and shifted
-        xt = partial(qspline, xa,xb,xc + sx)
-        yt = partial(qspline, ya,yb,yc + sy)
-        zt = partial(qspline, za,zb,zc + sz)
+        xt = partial(qspline, xa,xb,xc)
+        yt = partial(qspline, ya,yb,yc)
+        zt = partial(qspline, za,zb,zc)
         return (xt,yt,zt)
 
 class PQSplineModule(nn.Module):

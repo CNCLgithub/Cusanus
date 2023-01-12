@@ -76,9 +76,11 @@ class ModulatedSirenNet(SirenNet):
 
 class LatentModulation(nn.Module):
 
-    def __init__(self, dim: int):
+    def __init__(self, dim: int, device):
         super().__init__()
-        self.latent_code = nn.Parameter(data = torch.zeros(dim))
+        data = torch.zeros(dim, device = device,
+                           requires_grad = False)
+        self.latent_code = nn.Parameter(data = data)
 
     def forward(self):
         return self.latent_code

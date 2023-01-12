@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from torch import optim
 import pytorch_lightning as pl
 from functorch import make_functional
@@ -32,8 +33,8 @@ class KSplineField(ImplicitNeuralField):
         self.module = module
 
     def initialize_modulation(self):
-        m = LatentModulation(self.module.qspline.mod)
-        m.to(self.device)
+        m = LatentModulation(self.module.qspline.mod,
+                             self.device)
         return make_functional(m)
 
     def pred_loss(self, qs: Tensor, ys: Tensor, pred):
