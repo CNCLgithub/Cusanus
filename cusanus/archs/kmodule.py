@@ -19,15 +19,15 @@ def eval_spline_lpdf(loc:Tensor, sigma:Tensor, value:Tensor):
     return -((value - loc) ** 2) / (2 * var) - log_scale - math.log(math.sqrt(2 * math.pi))
 
 def _fc_layers(indim:int, outdim:int, hidden:int, depth:int):
-        layers = []
-        for l in range(depth-1):
-            layer = nn.Sequential(
-                nn.Linear(indim if l == 0 else hidden,
-                          hidden),
-                nn.ReLU())
-            layers.append(layer)
-        layers.append(nn.Linear(hidden, outdim))
-        return nn.Sequential(*layers)
+    layers = []
+    for l in range(depth-1):
+        layer = nn.Sequential(
+            nn.Linear(indim if l == 0 else hidden,
+                        hidden),
+            nn.ReLU())
+        layers.append(layer)
+    layers.append(nn.Linear(hidden, outdim))
+    return nn.Sequential(*layers)
 
 def column_vec(x: Tensor):
     v = torch.zeros((2,1),
@@ -50,6 +50,13 @@ def rotation_matrix(a:Tensor,b:Tensor,c:Tensor):
     ])
     return m
 
+def expand_coef(coef:Tensor, tb_angles:Tensor):
+    # [coef 0 0]
+    cv = column_vec(coef)
+    # 3x3 rotation matrix
+    # rotm = rotation_matrix(*tb_angles)
+    # coeff across 3 dimensions
+    return torch.matmul(cv, tb_angles)
 
 class QSplineModule(nn.Module):
 
@@ -61,42 +68,19 @@ class QSplineModule(nn.Module):
                  ):
 
         super().__init__()
-        # assert kdim % 2 == 0, f'qspline modulation ({kdim}) not divisible by 3'
-        # mdim = int(kdim / 2)
         self.mod = kdim
-        self.abc = nn.Sequential(SirenNet(theta_in = kdim,
-                                          theta_hidden = hidden,
-                                          theta_out = hidden,
-                                          final_activation = nn.Identity,
-                                          **abc_params),
-                                 _fc_layers(hidden, 9, hidden, 3))
-        # self.rot = nn.Sequential(SirenNet(theta_in = mdim,
-        #                                   theta_hidden = hidden,
-        #                                   theta_out = hidden,
-        #                                   final_activation = nn.Identity,
-        #                                   **abc_params),
-        #                          _fc_layers(hidden, 27, hidden, 3))
+        self.abc = SirenNet(theta_in = kdim,
+                            theta_hidden = hidden,
+                            theta_out = 9,
+                            final_activation = nn.Identity,
+                            **abc_params)
 
-    def expand_coef(self, coef:Tensor, tb_angles:Tensor):
-        # [coef 0 0]
-        cv = column_vec(coef)
-        # 3x3 rotation matrix
-        # rotm = rotation_matrix(*tb_angles)
-        # coeff across 3 dimensions
-        return torch.matmul(cv, tb_angles)
 
     def forward(self, m):
-        # m1, m2 = torch.chunk(m, 2)
         a,b,c = self.abc(m).reshape(3,3)
         xa, ya, za = a
         xb, yb, zb = b
         xc, yc, zc = c
-        # ra,rb,rc = self.rot(m2).reshape(3,3,3)
-
-        # xa, ya, za = self.expand_coef(a, ra)
-        # xb, yb, zb = self.expand_coef(b, rb)
-        # xc, yc, zc = self.expand_coef(c, rc)
-
         xt = partial(qspline, xa,xb,xc)
         yt = partial(qspline, ya,yb,yc)
         zt = partial(qspline, za,zb,zc)
