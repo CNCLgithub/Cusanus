@@ -2,37 +2,30 @@ manual_seed: 1234
 
 arch_params:
     kdim: 9
-    hidden: 128
     qspline_params:
-        abc_params:
-            depth: 12
-            w0_initial: 5.0
-            w0: 1.0
-            c: 6.0
-            use_bias: 1
-        rot_params:
-            depth: 5
-            w0_initial: 5.0
-            w0: 1.0
-            c: 6.0
-            use_bias: 1
+        depth: 12
+        theta_hidden: 128
+        w0_initial: 5.0
+        w0: 1.0
+        c: 6.0
+        use_bias: 1
 
     sigma_params:
-        hidden: 128
+        hidden: 64
         depth: 4
-        w0_initial: 15.0
+        w0_initial: 5.0
         w0: 1.0
         c: 6.0
 
 task_params:
-    inner_steps: 10
-    lr: 0.000005
+    inner_steps: 5
+    lr: 0.00001
     weight_decay: 0.0
-    sched_gamma: 1.0
+    sched_gamma: 0.99
     lr_inner: 0.01
 
 loader_params:
-  batch_size: 2000
+  batch_size: 1000
   num_workers: 8
 
 trainer_params:

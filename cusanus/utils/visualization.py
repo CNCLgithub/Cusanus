@@ -103,7 +103,7 @@ class RenderKField(pl.Callback):
                 y=qs,
                 z=loc[:,2],
                 marker=dict(
-                    # size=std,
+                    size=std,
                     color=qs,
                     colorscale='Sunset',
                     opacity=0.4

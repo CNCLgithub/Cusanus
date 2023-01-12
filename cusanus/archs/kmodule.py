@@ -62,18 +62,14 @@ class QSplineModule(nn.Module):
 
     def __init__(self,
                  kdim:int,
-                 hidden:int,
-                 abc_params:dict,
-                 rot_params:dict,
-                 ):
+                 **kwargs):
 
         super().__init__()
         self.mod = kdim
         self.abc = SirenNet(theta_in = kdim,
-                            theta_hidden = hidden,
                             theta_out = 9,
                             final_activation = nn.Identity,
-                            **abc_params)
+                            **kwargs)
 
 
     def forward(self, m):
@@ -90,22 +86,21 @@ class PQSplineModule(nn.Module):
 
     def __init__(self,
                  kdim:int,
-                 hidden:int,
                  qspline_params:dict,
                  sigma_params:dict):
 
         super().__init__()
         # qspline for mean
         self.qspline = QSplineModule(kdim = kdim,
-                                     hidden = hidden,
                                      **qspline_params)
 
-        # # variance INR
-        # self.sigma = ImplicitNeuralModule(q_in = 1,
-        #                                   out = 3,
-        #                                   mod = kdim,
-        #                                   sigmoid = False,
-        #                                   **sigma_params)
+        # variance INR
+        self.sigma = ImplicitNeuralModule(q_in = 1,
+                                          out = 3,
+                                          mod = kdim,
+                                          # Identity act
+                                          sigmoid = False,
+                                          **sigma_params)
 
     def forward(self, qs:Tensor, mod):
         # b x 1
@@ -114,9 +109,9 @@ class PQSplineModule(nn.Module):
         loc = torch.cat([xt(qs), yt(qs), zt(qs)],
                         axis = 1)
         # b x 3
-        # sigma = self.sigma(qs, mod)
-        # std = torch.exp(0.5 * sigma)
-        # eps = torch.randn_like(std)
-        # ys = eps * std + loc
+        sigma = self.sigma(qs, mod)
+        std = torch.exp(0.5 * sigma)
+        eps = torch.randn_like(std)
+        ys = eps * std + loc
         # REVIEW: could also return spline partials
-        return loc, loc, loc
+        return ys, loc, std
