@@ -61,7 +61,9 @@ def main():
     # BEGIN TRAINING
     Path(f"{logger.log_dir}/volumes").mkdir(exist_ok=True, parents=True)
     print(f"======= Training {logger.name} =======")
-    runner.fit(task, train_loader, val_loader, ckpt_path='last')
+    ckpt_path = Path(f'{logger.log_dir}/checkpoints/last.ckpt')
+    ckpt_path = str(ckpt_path) if ckpt_path.exists() else None
+    runner.fit(task, train_loader, val_loader, ckpt_path=ckpt_path)
 
 if __name__ == '__main__':
     main()

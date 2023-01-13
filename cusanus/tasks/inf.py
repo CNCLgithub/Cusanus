@@ -31,10 +31,9 @@ class ImplicitNeuralField(pl.LightningModule):
         self.module = module
 
     def initialize_modulation(self):
-        m = LatentModulation(self.module.mod)
-        m.to(self.device)
-        m.train()
-        return make_functional_with_buffers(m)
+        m = LatentModulation(self.module.mod,
+                             self.device)
+        return make_functional(m)
 
     def initialize_inner_opt(self, mparams):
         lr = self.hparams.lr_inner

@@ -94,8 +94,8 @@ class RenderKField(pl.Callback):
         _, loc, std = outputs['pred']
         loc = loc.detach().cpu()
         std = torch.sum(std.detach().cpu(),
-                        axis = 1)
-        std *= 50.0
+                         axis = 1)
+        std *= 5.0
         fig = go.Figure(
             data=[
                 go.Scatter3d(
