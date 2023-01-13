@@ -64,7 +64,7 @@ class PQSplineModule(nn.Module):
         # b x 3
         sigma = self.sigma(qs, m)
         std = torch.exp(0.5 * sigma)
-        eps = torch.randn_like(std)
-        ys = eps * std + loc
+        # eps = torch.randn_like(std)
+        # ys = eps * std + loc
         # REVIEW: could also return spline partials
-        return ys, loc, std
+        return loc, loc, std

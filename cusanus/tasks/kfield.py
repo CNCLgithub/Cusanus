@@ -33,10 +33,15 @@ class KSplineField(ImplicitNeuralField):
         self.module = module
 
     def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-        pred_ys, loc, std = pred
-        rec_loss = mse_loss(ys, pred_ys)
+        _ ,loc, std = pred
+        z_loss = torch.mean(torch.abs(ys - loc) / std)
         var_loss = torch.mean(torch.abs(std - 1.0))
-        return rec_loss + var_loss
+        return z_loss + var_loss
+    # def pred_loss(self, qs: Tensor, ys: Tensor, pred):
+    #     pred_ys, loc, std = pred
+    #     rec_loss = mse_loss(ys, pred_ys)
+    #     var_loss = torch.mean(torch.abs(std - 1.0))
+    #     return rec_loss + var_loss
 
         # rec_loss = torch.mean(mse_loss(ys, pred_ys))
         # return rec_loss  + 0.1 * var_loss
@@ -58,7 +63,7 @@ class KSplineField(ImplicitNeuralField):
 
         params = [
             {'params': self.module.qspline.parameters()},
-            # {'params': self.module.sigma.theta.parameters()},
+            {'params': self.module.sigma.theta.parameters()},
         ]
         optimizer = optim.Adam(params,
                                lr=self.hparams.lr,
