@@ -126,7 +126,7 @@ class RenderKField(pl.Callback):
                     opacity=1.0)),])
         fig.update_scenes(aspectmode = 'data')
         path = os.path.join(exp.logger.log_dir, "volumes",
-                            f"epoch_{exp.current_epoch}" + \
+                            "latest" + \
                             f"_batch_{batch_idx}.html")
         fig.write_html(path)
 

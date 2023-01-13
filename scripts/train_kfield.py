@@ -1,6 +1,7 @@
 import os
 import yaml
 import torch
+import argparse
 from pathlib import Path
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import CSVLogger
@@ -17,11 +18,24 @@ task_name = 'kfield'
 dataset_name = 'kfield'
 
 def main():
+    parser = argparse.ArgumentParser(
+        description = 'Trains kfield',
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('--version', type = int,
+                        help = 'Exp version number',
+                        default = -1)
+    args = parser.parse_args()
+    if args.version == -1:
+        version = None
+    else:
+        version = args.version
     with open(f"/project/scripts/configs/{task_name}_task.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
     logger = CSVLogger(save_dir=config['logging_params']['save_dir'],
-                       name= task_name)
+                       name= task_name,
+                       version = version)
 
     # For reproducibility
     seed_everything(config['manual_seed'], True)

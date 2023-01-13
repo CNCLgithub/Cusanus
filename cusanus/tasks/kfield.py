@@ -62,7 +62,8 @@ class KSplineField(ImplicitNeuralField):
     def configure_optimizers(self):
 
         params = [
-            {'params': self.module.qspline.parameters()},
+            # {'params': self.module.qspline.parameters()},
+            {'params': self.module.mu.theta.parameters()},
             {'params': self.module.sigma.theta.parameters()},
         ]
         optimizer = optim.Adam(params,

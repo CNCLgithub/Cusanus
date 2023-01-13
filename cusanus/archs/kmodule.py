@@ -44,8 +44,14 @@ class PQSplineModule(nn.Module):
         super().__init__()
         self.mod = kdim
         # qspline for mean
-        self.qspline = QSplineModule(kdim = kdim,
-                                     **qspline_params)
+        # self.qspline = QSplineModule(kdim = kdim,
+        #                              **qspline_params)
+        self.mu = ImplicitNeuralModule(q_in = 1,
+                                       out = 3,
+                                       mod = kdim,
+                                       # Identity act
+                                       sigmoid = False,
+                                       **sigma_params)
 
         # variance INR
         self.sigma = ImplicitNeuralModule(q_in = 1,
@@ -54,13 +60,9 @@ class PQSplineModule(nn.Module):
                                           # Identity act
                                           sigmoid = False,
                                           **sigma_params)
-
     def forward(self, qs:Tensor, m:Tensor):
-        # b x 1
-        xt, yt, zt = self.qspline(m)
         # b x 3
-        loc = torch.cat([xt(qs), yt(qs), zt(qs)],
-                        axis = 1)
+        loc = self.mu(qs, m)
         # b x 3
         sigma = self.sigma(qs, m)
         std = torch.exp(0.5 * sigma)
@@ -68,3 +70,17 @@ class PQSplineModule(nn.Module):
         # ys = eps * std + loc
         # REVIEW: could also return spline partials
         return loc, loc, std
+
+    # def forward(self, qs:Tensor, m:Tensor):
+    #     # b x 1
+    #     xt, yt, zt = self.qspline(m)
+    #     # b x 3
+    #     loc = torch.cat([xt(qs), yt(qs), zt(qs)],
+    #                     axis = 1)
+    #     # b x 3
+    #     sigma = self.sigma(qs, m)
+    #     std = torch.exp(0.5 * sigma)
+    #     # eps = torch.randn_like(std)
+    #     # ys = eps * std + loc
+    #     # REVIEW: could also return spline partials
+    #     return loc, loc, std

@@ -1,0 +1,17 @@
+train:
+    scenes:
+        n_scenes: 100000
+        sphere_z_max: 7.0
+    simulations:
+        max_dur: 7.0
+    kfield:
+        segment_dur: 500.0
+
+val:
+    scenes:
+        n_scenes: 10
+        sphere_z_max: 7.0
+    simulations:
+        max_dur: 7.0
+    kfield:
+        segment_dur: 500.0
