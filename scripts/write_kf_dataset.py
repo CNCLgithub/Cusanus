@@ -18,6 +18,9 @@ def main():
     parser.add_argument('--num_workers', type = int,
                         help = 'Number of write workers',
                         default = -1)
+    parser.add_argument('--num_steps', type = int,
+                        help = 'Number of steps for running stats',
+                        default = 5000)
     args = parser.parse_args()
 
 
@@ -31,11 +34,11 @@ def main():
         if dname == 'train':
             d = KFieldDataset(simulations, **c['kfield'])
             stats = RunningStats(3)
-            for i in range(min(len(d), 5000)):
+            for i in range(min(len(d), args.num_steps)):
                 print('step',i)
                 _, qs = d[i]
                 for xyz in qs:
-                    stats.push(xyz)
+                    stats.push(xyz[:3])
             mean = stats.mean()
             stdev = stats.standard_deviation()
             print(f'Mean: {mean}, Std. Dev.: {stdev}')

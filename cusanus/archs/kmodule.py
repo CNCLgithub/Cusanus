@@ -42,9 +42,11 @@ class PQSplineModule(nn.Module):
                  sigma_params:dict):
 
         super().__init__()
+        assert kdim % 2 == 0, 'kdim {kdim} not even'
         self.mod = kdim
+        mdim = int(kdim / 2)
         # qspline for mean
-        # self.qspline = QSplineModule(kdim = kdim,
+        # self.qspline = QSplineModule(kdim = mdim,
         #                              **qspline_params)
         self.mu = ImplicitNeuralModule(q_in = 1,
                                        out = 3,
@@ -56,20 +58,26 @@ class PQSplineModule(nn.Module):
         # variance INR
         self.sigma = ImplicitNeuralModule(q_in = 1,
                                           out = 3,
-                                          mod = kdim,
+                                          mod = mdim,
                                           # Identity act
                                           sigmoid = False,
                                           **sigma_params)
     def forward(self, qs:Tensor, m:Tensor):
+        m1,m2 = torch.chunk(m, 2)
         # b x 3
+        # xt, yt, zt = self.qspline(m1)
+        # # b x 3
+        # loc = torch.cat([xt(qs), yt(qs), zt(qs)],
+        #                 axis = 1)
         loc = self.mu(qs, m)
         # b x 3
-        sigma = self.sigma(qs, m)
+        sigma = self.sigma(qs, m2)
         std = torch.exp(0.5 * sigma)
         # eps = torch.randn_like(std)
         # ys = eps * std + loc
+        ys = torch.cat([loc, std], axis = 1)
         # REVIEW: could also return spline partials
-        return loc, loc, std
+        return ys, loc, std
 
     # def forward(self, qs:Tensor, m:Tensor):
     #     # b x 1

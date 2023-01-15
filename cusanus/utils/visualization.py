@@ -95,7 +95,8 @@ class RenderKField(pl.Callback):
         loc = loc.detach().cpu()
         std = torch.sum(std.detach().cpu(),
                          axis = 1)
-        std *= 5.0
+        exp.log('val_std', torch.mean(std))
+        std *= 10.0
         fig = go.Figure(
             data=[
                 go.Scatter3d(
@@ -106,13 +107,8 @@ class RenderKField(pl.Callback):
                     size=std,
                     color=qs,
                     colorscale='Sunset',
-                    opacity=0.4
+                    opacity=0.8
                 ),
-                line=dict(
-                    colorscale='Sunset',
-                    color = qs,
-                    width=20.0,
-                )
             ),
             go.Scatter3d(
                 x=ys[:,0],

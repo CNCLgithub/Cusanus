@@ -1,6 +1,6 @@
 train:
     scenes:
-        n_scenes: 1000
+        n_scenes: 100000
         sphere_z_max: 7.0
     simulations:
         max_dur: 7.0

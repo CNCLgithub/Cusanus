@@ -36,7 +36,7 @@ class KFieldDataset(FieldDataset):
 
     @property
     def ysize(self):
-        return 3
+        return 6
 
     @property
     def k_queries(self):
@@ -53,16 +53,18 @@ class KFieldDataset(FieldDataset):
         # sample time range
         start = np.random.randint(0, steps - self.segment_steps)
         stop = start + self.segment_steps
-        gt_kinematics = position[start:stop:self.steps_per_frame]
 
-        qs = np.empty((self.segment_frames, self.qsize),
-                      dtype = np.float32)
-        ys = np.empty((self.segment_frames, self.ysize),
-                      dtype = np.float32)
-        for t in range(self.segment_frames):
-            tn = t / self.t_scale
-            ks = (gt_kinematics[t] - self.y_mean) / self.y_std
-            qs[t] = tn
-            ys[t] = ks
+        qs = np.arange(self.segment_frames,
+                       dtype = np.float32) / self.segment_steps
 
+        xyz = position[start:stop:self.steps_per_frame]
+        xyz = (xyz - self.y_mean) / self.y_std
+
+        coefs = np.polyfit(qs, xyz, 2).astype(np.float32)
+        resds = np.empty_like(xyz, dtype = np.float32)
+        for d in range(3):
+            resds[:, d] = np.abs(xyz[:, d] - \
+                                 np.polyval(coefs[:, d], qs))
+
+        ys = np.concatenate([xyz, resds], axis = 1).astype(np.float32)
         return qs, ys

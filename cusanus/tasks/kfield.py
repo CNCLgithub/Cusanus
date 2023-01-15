@@ -33,10 +33,14 @@ class KSplineField(ImplicitNeuralField):
         self.module = module
 
     def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-        _ ,loc, std = pred
-        z_loss = torch.mean(torch.abs(ys - loc) / std)
-        var_loss = torch.mean(torch.abs(std - 1.0))
-        return z_loss + var_loss
+        pred_ys, loc, std = pred
+        loss = mse_loss(ys, pred_ys)
+        return loss
+    # def pred_loss(self, qs: Tensor, ys: Tensor, pred):
+    #     _ ,loc, std = pred
+    #     z_loss = torch.mean(torch.abs(ys - loc) / std)
+    #     var_loss = torch.mean(torch.abs(std - 1.0))
+    #     return z_loss + var_loss
     # def pred_loss(self, qs: Tensor, ys: Tensor, pred):
     #     pred_ys, loc, std = pred
     #     rec_loss = mse_loss(ys, pred_ys)
