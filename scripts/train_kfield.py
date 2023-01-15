@@ -8,10 +8,10 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from cusanus.archs import PQSplineModule
+from cusanus.archs import KModule
 from cusanus.tasks import KSplineField
 from cusanus.datasets import load_ffcv
-from cusanus.utils.visualization import RenderKField
+from cusanus.utils.visualization import RenderKFieldVolumes
 
 
 task_name = 'kfield'
@@ -41,7 +41,7 @@ def main():
     seed_everything(config['manual_seed'], True)
 
     # initialize networks and task
-    arch = PQSplineModule(**config['arch_params'])
+    arch = KModule(**config['arch_params'])
     arch.train()
     task = KSplineField(arch, **config['task_params'])
 
@@ -53,7 +53,7 @@ def main():
                                                                 "checkpoints"),
                                          monitor= "loss",
                                          save_last=True),
-                         RenderKField(batch_step = 500)
+                         RenderKFieldVolumes()
 
                      ],
                      accelerator = 'auto',

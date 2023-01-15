@@ -22,8 +22,9 @@ def grids_along_axis(naxis : int, nres : int,
 
 def motion_grids(nt : int, nxyz : int, delta:float = 1.0):
     time = torch.linspace(0., 1.0, steps = nt)
-    rest = torch.linspace(-delta, delta, steps = nxyz)
-    tcube = torch.cartesian_prod(time, rest, rest, rest)
+    xz = torch.linspace(-delta, delta, steps = nxyz)
+    y = torch.zeros(1)
+    tcube = torch.cartesian_prod(time, xz, y, xz)
     # reorder axis
     tcube = tcube.reshape(-1,4)
     return tcube

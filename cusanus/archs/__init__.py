@@ -3,4 +3,4 @@ from . siren import (ImplicitNeuralModule,
                      SirenNet,
                      ModulatedSirenNet,
                      Sine)
-from . kmodule import PQSplineModule
+from . kmodule import PQSplineModule, KModule

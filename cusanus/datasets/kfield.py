@@ -11,12 +11,14 @@ class KFieldDataset(FieldDataset):
 
     def __init__(self,
                  sim_dataset:SimDataset,
+                 k_per_frame:int = 5,
                  segment_dur:float = 2000.0,
                  t_scale:float = 60.0,
-                 y_mean:np.ndarray = np.zeros(3),
-                 y_std:np.ndarray = np.ones(3),
+                 mean:np.ndarray = np.zeros(3),
+                 std:np.ndarray = np.ones(3),
                  ):
         self.simulations = sim_dataset
+        self.k_per_frame = k_per_frame
         segment_steps = np.floor(segment_dur / (1000/240)).astype(int)
         dur_per_frame = 1000.0 / 60.0
         steps_per_frame = np.floor(dur_per_frame * 240/1000).astype(int)
@@ -25,18 +27,20 @@ class KFieldDataset(FieldDataset):
         self.segment_steps = segment_steps
         self.segment_frames = nframes
         self.steps_per_frame = steps_per_frame
-        self._k_queries = nframes
+        self._k_queries = nframes * k_per_frame
         self.t_scale = t_scale
-        self.y_mean = y_mean
-        self.y_std = y_std
+        self.mean = mean
+        self.std = std
+        self.noise_rv = scipy.stats.norm(loc = np.zeros(3),
+                                         scale = np.ones(3))
 
     @property
     def qsize(self):
-        return 1
+        return 4
 
     @property
     def ysize(self):
-        return 6
+        return 1
 
     @property
     def k_queries(self):
@@ -53,18 +57,26 @@ class KFieldDataset(FieldDataset):
         # sample time range
         start = np.random.randint(0, steps - self.segment_steps)
         stop = start + self.segment_steps
-
-        qs = np.arange(self.segment_frames,
-                       dtype = np.float32) / self.segment_steps
-
         xyz = position[start:stop:self.steps_per_frame]
-        xyz = (xyz - self.y_mean) / self.y_std
 
-        coefs = np.polyfit(qs, xyz, 2).astype(np.float32)
-        resds = np.empty_like(xyz, dtype = np.float32)
-        for d in range(3):
-            resds[:, d] = np.abs(xyz[:, d] - \
-                                 np.polyval(coefs[:, d], qs))
 
-        ys = np.concatenate([xyz, resds], axis = 1).astype(np.float32)
-        return qs, ys
+        qs = np.empty((self.segment_frames, self.k_per_frame, self.qsize),
+                      dtype = np.float32)
+        ys = np.empty((self.segment_frames, self.k_per_frame, self.ysize),
+                      dtype = np.float32)
+        for t in range(self.segment_frames):
+            tn = t / self.segment_frames
+            # normalized to mu 0, std 1
+            ks = (xyz[t] - self.mean) / self.std
+            for i in range(self.k_per_frame):
+                noise = 0.01 * self.noise_rv.rvs()
+                if np.random.rand() > 0.5:
+                    noise *= 300.0
+                qs[t, i, 0] = tn
+                qs[t, i, 1:] = ks + noise
+                ys[t, i] = np.linalg.norm(noise)
+
+        qs = qs.reshape((-1, self.qsize))
+        ys = ys.reshape((-1, self.ysize))
+
+        return qs,ys

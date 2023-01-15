@@ -36,15 +36,15 @@ def main():
             stats = RunningStats(3)
             for i in range(min(len(d), args.num_steps)):
                 print('step',i)
-                _, qs = d[i]
-                for xyz in qs:
-                    stats.push(xyz[:3])
+                qs, ys = d[i]
+                for q in qs:
+                    stats.push(q[1:])
             mean = stats.mean()
             stdev = stats.standard_deviation()
             print(f'Mean: {mean}, Std. Dev.: {stdev}')
         d = KFieldDataset(simulations, **c['kfield'],
-                          y_mean = mean,
-                          y_std = stdev)
+                          mean = mean,
+                          std = stdev)
         dpath = f"/spaths/datasets/{name}_{dname}_dataset.beton"
         d.write_ffcv(dpath, num_workers = args.num_workers)
 

@@ -33,7 +33,7 @@ class KSplineField(ImplicitNeuralField):
         self.module = module
 
     def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-        pred_ys, loc, std = pred
+        pred_ys = pred
         loss = mse_loss(ys, pred_ys)
         return loss
     # def pred_loss(self, qs: Tensor, ys: Tensor, pred):
@@ -56,19 +56,21 @@ class KSplineField(ImplicitNeuralField):
         (qs, ys) = batch
         qs = qs[0]
         ys = ys[0]
-        pred = fit_and_eval(self,qs, ys)
+        m = self.fit_modulation(qs, ys)
+        pred = self.eval_modulation(m, qs)
         pred_loss = self.pred_loss(qs, ys, pred).detach().cpu()
         self.log('val_loss', pred_loss)
-        return {'loss' : pred_loss, 'pred' : pred}
+        return {'loss' : pred_loss,
+                'mod' : m,
+                'pred':pred.detach().cpu()}
 
 
 
     def configure_optimizers(self):
 
         params = [
-            # {'params': self.module.qspline.parameters()},
-            {'params': self.module.mu.theta.parameters()},
-            {'params': self.module.sigma.theta.parameters()},
+            {'params': self.module.pos_field.theta.parameters()},
+            {'params': self.module.motion_field.theta.parameters()},
         ]
         optimizer = optim.Adam(params,
                                lr=self.hparams.lr,

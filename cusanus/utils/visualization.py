@@ -89,40 +89,40 @@ class RenderKField(pl.Callback):
     def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
         (qs, ys) = batch
-        qs = qs[0].detach().cpu().squeeze()
+        qs = qs[0].detach().cpu()
         ys = ys[0].detach().cpu()
-        _, loc, std = outputs['pred']
-        loc = loc.detach().cpu()
-        std = torch.sum(std.detach().cpu(),
-                         axis = 1)
-        exp.log('val_std', torch.mean(std))
-        std *= 10.0
-        fig = go.Figure(
-            data=[
-                go.Scatter3d(
-                x=loc[:,0],
-                y=qs,
-                z=loc[:,2],
-                marker=dict(
-                    size=std,
-                    color=qs,
-                    colorscale='Sunset',
-                    opacity=0.8
-                ),
-            ),
-            go.Scatter3d(
-                x=ys[:,0],
-                y=qs,
-                z=ys[:,2],
-                mode='markers',
-                marker=dict(
-                    # size=10.,
-                    color=qs,
-                    colorscale='Sunset',
-                    opacity=1.0)),])
-        fig.update_scenes(aspectmode = 'data')
+        pred_ys = outputs['pred'].detach().cpu()
         path = os.path.join(exp.logger.log_dir, "volumes",
                             "latest" + \
+                            f"_batch_{batch_idx}.html")
+        fig.write_html(path)
+
+
+class RenderKFieldVolumes(pl.Callback):
+    def __init__(self,
+                 nt:int=10,
+                 nxyz:int=20,
+                 delta:float=6.0):
+        super().__init__()
+        self.nt = nt
+        self.nxyz = nxyz
+        self.delta = delta
+
+    def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (qs, ys) = batch
+        qs = qs[0].detach().cpu()
+        ys = ys[0].detach().cpu()
+        pred_ys = outputs['pred']
+        # m = outputs['mod']
+        # pred_qs = motion_grids(self.nt,
+        #                        self.nxyz,
+        #                        delta = self.delta)
+        # pred_qs = pred_qs.to(exp.device)
+        # pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
+        # pred_qs = pred_qs.detach().cpu()
+        fig = plot_motion_trace(qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "volumes",
                             f"_batch_{batch_idx}.html")
         fig.write_html(path)
 
@@ -238,20 +238,30 @@ def plot_volume_slice(qs:Tensor, ys:Tensor, n : int):
     return fig
 
 
-def plot_motion_trace(qs, ys, **plot_args):
-    fig = go.Figure(data=go.Scatter3d(
-        x=qs[:,1], y=qs[:,2], z=qs[:,3],
-        opacity=ys,
-        marker=dict(
-            size=4,
-            color=qs[:, 0],
-            colorscale='Viridis',
-        ),
-        line=dict(
-            color='darkblue',
-            width=2
-        )
-    ))
+def plot_motion_trace(pred_qs, pred_ys, **plot_args):
+    fig = go.Figure(data= [
+        go.Scatter3d(
+            x = pred_qs[:, 1],
+            y = pred_qs[:, 0],
+            z = pred_qs[:, 3],
+            mode = 'markers',
+            marker=dict(
+                size=12,
+                color=pred_ys.squeeze(),
+                colorscale='Sunset',
+                colorbar_title = 'L2 distance',),
+            name = 'Fit'),
+        # go.Volume(
+        #     x=pred_qs[:, 1],
+        #     y=pred_qs[:, 0],
+        #     z=pred_qs[:, 3],
+        #     value=pred_ys,
+        #     opacity=0.1, # needs to be small to see through all surfaces
+        #     surface_count=15, # needs to be a large number for good volume rendering
+        #     name = 'Pred',
+        #     ),
+        ])
+    fig.update_layout(showlegend=True)
     return fig
 
 def plot_motion_volumes(qs:Tensor, ys:Tensor, t:int,

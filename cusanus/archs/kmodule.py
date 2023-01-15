@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from functools import partial
+from functorch import vmap
 
 from cusanus.pytypes import *
 from cusanus.archs import ImplicitNeuralModule, SirenNet
@@ -92,3 +93,43 @@ class PQSplineModule(nn.Module):
     #     # ys = eps * std + loc
     #     # REVIEW: could also return spline partials
     #     return loc, loc, std
+
+class KModule(nn.Module):
+
+    def __init__(self,
+                 mdim:int,
+                 pdim:int,
+                 pf_params:dict,
+                 mf_params:dict):
+
+        super().__init__()
+        self.mod = mdim
+        self.pos_field = ImplicitNeuralModule(q_in = 3,
+                                              out = 1,
+                                              mod = pdim,
+                                              sigmoid = False,
+                                              **pf_params)
+        self.motion_field = ImplicitNeuralModule(q_in = 1,
+                                                 out = pdim,
+                                                 mod = mdim,
+                                                 # Identity act
+                                                 sigmoid = False,
+                                                 **mf_params)
+        self.act = nn.Softplus()
+
+    def forward(self, qs:Tensor, m:Tensor):
+        b, _ = qs.shape
+        t = qs[:, 0].unsqueeze(1)    # b x 1
+        xyz = qs[:, 1:] # b x 3
+        # pmod, mmod = torch.chunk(m, 2)
+
+        # p0_exp = pmod.unsqueeze(0).expand(b, -1) # b x mdim
+
+        # qs_p0 = torch.cat([t, p0_exp],
+        #                   axis = 1)
+        # b x mdim
+        # pmods = self.motion_field(qs_p0, mmod)
+        pmods = self.motion_field(t, m)
+        ys = vmap(self.pos_field)(xyz, pmods)
+        ys = self.act(ys)
+        return ys
