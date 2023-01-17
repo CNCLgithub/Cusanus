@@ -36,19 +36,20 @@ class KSplineField(ImplicitNeuralField):
         pred_ys = pred
         loss = mse_loss(ys, pred_ys)
         return loss
-    # def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-    #     _ ,loc, std = pred
-    #     z_loss = torch.mean(torch.abs(ys - loc) / std)
-    #     var_loss = torch.mean(torch.abs(std - 1.0))
-    #     return z_loss + var_loss
-    # def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-    #     pred_ys, loc, std = pred
-    #     rec_loss = mse_loss(ys, pred_ys)
-    #     var_loss = torch.mean(torch.abs(std - 1.0))
-    #     return rec_loss + var_loss
 
-        # rec_loss = torch.mean(mse_loss(ys, pred_ys))
-        # return rec_loss  + 0.1 * var_loss
+    @torch.enable_grad()
+    @torch.inference_mode(False)
+    def test_step(self, batch, batch_idx):
+        (qs, ys) = batch
+        qs = qs[0]
+        ys = ys[0]
+        m = self.fit_modulation(qs, ys)
+        pred = self.eval_modulation(m, qs)
+        pred_loss = self.pred_loss(qs, ys, pred).detach().cpu()
+        self.log('test_loss', pred_loss)
+        return {'loss' : pred_loss,
+                'mod' : m,
+                'pred':pred.detach().cpu()}
 
     @torch.enable_grad()
     @torch.inference_mode(False)

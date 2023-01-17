@@ -25,7 +25,7 @@ task_params:
     sched_gamma: 0.999
 
 loader_params:
-  batch_size: 100
+  batch_size: 200
   num_workers: 8
 
 trainer_params:

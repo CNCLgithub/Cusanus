@@ -13,9 +13,10 @@ class KFieldDataset(FieldDataset):
                  sim_dataset:SimDataset,
                  k_per_frame:int = 5,
                  segment_dur:float = 2000.0,
-                 t_scale:float = 60.0,
+                 t_scale:float = 30.0,
                  mean:np.ndarray = np.zeros(3),
                  std:np.ndarray = np.ones(3),
+                 add_noise:bool = False,
                  ):
         self.simulations = sim_dataset
         self.k_per_frame = k_per_frame
@@ -31,8 +32,11 @@ class KFieldDataset(FieldDataset):
         self.t_scale = t_scale
         self.mean = mean
         self.std = std
-        self.noise_rv = scipy.stats.norm(loc = np.zeros(3),
-                                         scale = np.ones(3))
+        self.small_noise_rv = scipy.stats.norm(loc = np.zeros(3),
+                                               scale = np.ones(3))
+        self.large_noise_rv = scipy.stats.uniform(loc = -1*np.ones(3),
+                                                  scale = 2*np.ones(3))
+        self.add_noise = add_noise
 
     @property
     def qsize(self):
@@ -59,19 +63,23 @@ class KFieldDataset(FieldDataset):
         stop = start + self.segment_steps
         xyz = position[start:stop:self.steps_per_frame]
 
-
         qs = np.empty((self.segment_frames, self.k_per_frame, self.qsize),
                       dtype = np.float32)
         ys = np.empty((self.segment_frames, self.k_per_frame, self.ysize),
                       dtype = np.float32)
         for t in range(self.segment_frames):
-            tn = t / self.segment_frames
+            tn = t / self.t_scale # 30fps
             # normalized to mu 0, std 1
             ks = (xyz[t] - self.mean) / self.std
             for i in range(self.k_per_frame):
-                noise = 0.01 * self.noise_rv.rvs()
-                if np.random.rand() > 0.5:
-                    noise *= 300.0
+                if self.add_noise:
+                    # add small or large amounts of noise
+                    if np.random.rand() > 0.5:
+                        noise = 0.001 * self.small_noise_rv.rvs()
+                    else:
+                        noise = 3.0 * self.large_noise_rv.rvs()
+                else:
+                    noise = np.zeros(3)
                 qs[t, i, 0] = tn
                 qs[t, i, 1:] = ks + noise
                 ys[t, i] = np.linalg.norm(noise)

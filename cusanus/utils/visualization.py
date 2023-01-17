@@ -4,6 +4,7 @@ import torchvision
 import numpy as np
 import pytorch_lightning as pl
 from pathlib import Path
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from cusanus.pytypes import *
 from cusanus.utils.coordinates import (grids_along_depth,
@@ -79,7 +80,7 @@ class RenderKField(pl.Callback):
                  nt:int=10,
                  nxyz:int=30,
                  batch_step:int=5,
-                 delta:float=10.0):
+                 delta:float=1.0):
         super().__init__()
         self.nt = nt
         self.nxyz = nxyz
@@ -97,12 +98,22 @@ class RenderKField(pl.Callback):
                             f"_batch_{batch_idx}.html")
         fig.write_html(path)
 
+    def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (qs, ys) = batch
+        qs = qs[0].detach().cpu()
+        ys = ys[0].detach().cpu()
+        pred_ys = outputs['pred'].detach().cpu()
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"_batch_{batch_idx}.html")
+        fig.write_html(path)
+
 
 class RenderKFieldVolumes(pl.Callback):
     def __init__(self,
-                 nt:int=10,
-                 nxyz:int=20,
-                 delta:float=6.0):
+                 nt:int=5,
+                 nxyz:int=40,
+                 delta:float=2.0):
         super().__init__()
         self.nt = nt
         self.nxyz = nxyz
@@ -111,19 +122,32 @@ class RenderKFieldVolumes(pl.Callback):
     def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
         (qs, ys) = batch
-        qs = qs[0].detach().cpu()
-        ys = ys[0].detach().cpu()
-        pred_ys = outputs['pred']
-        # m = outputs['mod']
-        # pred_qs = motion_grids(self.nt,
-        #                        self.nxyz,
-        #                        delta = self.delta)
-        # pred_qs = pred_qs.to(exp.device)
-        # pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
-        # pred_qs = pred_qs.detach().cpu()
-        fig = plot_motion_trace(qs, pred_ys)
+        fit_qs = qs[0].detach().cpu()
+        fit_ys = outputs['pred']
+        fig = plot_motion_trace(fit_qs, fit_ys)
         path = os.path.join(exp.logger.log_dir, "volumes",
-                            f"_batch_{batch_idx}.html")
+                            f"batch_{batch_idx}.html")
+        fig.write_html(path)
+
+    def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (qs, ys) = batch
+        fit_qs = qs[0].detach().cpu()
+        fit_ys = outputs['pred']
+        m = outputs['mod']
+        pred_qs = motion_grids(self.nt,
+                               self.nxyz,
+                               delta = self.delta)
+        pred_qs = pred_qs.to(exp.device)
+        pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
+        pred_qs = pred_qs.detach().cpu()
+        fig = plot_motion_trace(fit_qs, fit_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_fit.html")
+        fig.write_html(path)
+        fig = plot_3D_heatmap(pred_qs, pred_ys, self.nt)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_pred.html")
         fig.write_html(path)
 
 def plot_volume(qs, ys, **plot_args):
@@ -238,68 +262,47 @@ def plot_volume_slice(qs:Tensor, ys:Tensor, n : int):
     return fig
 
 
-def plot_motion_trace(pred_qs, pred_ys, **plot_args):
-    fig = go.Figure(data= [
+def plot_motion_trace(fit_qs, fit_ys):
+    fig = go.Figure( data =
         go.Scatter3d(
-            x = pred_qs[:, 1],
-            y = pred_qs[:, 0],
-            z = pred_qs[:, 3],
+            x = fit_qs[:, 1],
+            y = fit_qs[:, 0],
+            z = fit_qs[:, 3],
             mode = 'markers',
             marker=dict(
                 size=12,
-                color=pred_ys.squeeze(),
+                color=fit_ys.squeeze(),
                 colorscale='Sunset',
                 colorbar_title = 'L2 distance',),
-            name = 'Fit'),
-        # go.Volume(
-        #     x=pred_qs[:, 1],
-        #     y=pred_qs[:, 0],
-        #     z=pred_qs[:, 3],
-        #     value=pred_ys,
-        #     opacity=0.1, # needs to be small to see through all surfaces
-        #     surface_count=15, # needs to be a large number for good volume rendering
-        #     name = 'Pred',
-        #     ),
-        ])
+            name = 'Fit'))
     fig.update_layout(showlegend=True)
     return fig
 
-def plot_motion_volumes(qs:Tensor, ys:Tensor, t:int,
-                        **plot_args):
+def plot_3D_heatmap(qs:Tensor, ys:Tensor, t:int,
+                    **plot_args):
 
     volume = ys.reshape((t, -1))
     coords = qs.reshape((t, -1, 4))
     ts = coords[:, 0, 0]
 
     fig = go.Figure(frames=[
-        go.Frame(
-            data=go.Volume(
+        go.Frame( data=go.Heatmap(
             x=coords[k, :, 1],
-            y=coords[k, :, 2],
-            z=coords[k, :, 3],
-            value=volume[k],
-            # isomin=-5.0,
-            # isomax=3.0,
-            opacity=0.2, # needs to be small to see through all surfaces
-            surface_count=15, # needs to be a large number for good volume rendering
-            # autocolorscale = True,
-            **plot_args,
+            y=coords[k, :, 3],
+            z=volume[k],
+            type = 'heatmap',
+            colorscale = 'Sunset'
         ),
         name=str(k))
     for k in range(t)])
 
     # Add data to be displayed before animation starts
-    fig.add_trace(go.Volume(
-        x=coords[0, :, 1],
-        y=coords[0, :, 2],
-        z=coords[0, :, 3],
-        value=volume[0],
-        # isomin=0-5.0,
-        # isomax=3.0,
-        opacity=0.2, # needs to be small to see through all surfaces
-        surface_count=15, # needs to be a large number for good volume rendering
-        # autocolorscale = True,
-        **plot_args,
+    fig.add_trace(go.Heatmap(
+            x=coords[0, :, 1],
+            y=coords[0, :, 3],
+            z=volume[0],
+            type = 'heatmap',
+            colorscale = 'Sunset'
         ))
 
     def frame_args(duration):

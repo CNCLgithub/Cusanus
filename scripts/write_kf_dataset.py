@@ -27,12 +27,13 @@ def main():
     with open(f"/project/scripts/configs/{name}_dataset.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
-    for dname in ['train', 'val']:
+    for dname in ['train', 'val', 'test']:
         c = config[dname]
         scenes = SceneDataset(**c['scenes'])
         simulations = SimDataset(scenes, **c['simulations'])
         if dname == 'train':
-            d = KFieldDataset(simulations, **c['kfield'])
+            d = KFieldDataset(simulations, **c['kfield'],
+                              add_noise=False)
             stats = RunningStats(3)
             for i in range(min(len(d), args.num_steps)):
                 print('step',i)
@@ -44,7 +45,8 @@ def main():
             print(f'Mean: {mean}, Std. Dev.: {stdev}')
         d = KFieldDataset(simulations, **c['kfield'],
                           mean = mean,
-                          std = stdev)
+                          std = stdev,
+                          add_noise=True)
         dpath = f"/spaths/datasets/{name}_{dname}_dataset.beton"
         d.write_ffcv(dpath, num_workers = args.num_workers)
 
