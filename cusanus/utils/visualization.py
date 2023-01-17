@@ -145,24 +145,28 @@ class RenderKFieldVolumes(pl.Callback):
         path = os.path.join(exp.logger.log_dir, "test_volumes",
                             f"batch_{batch_idx}_fit.html")
         fig.write_html(path)
-        fig = plot_3D_heatmap(pred_qs, pred_ys, self.nt)
+        fig = plot_volume(pred_qs, pred_ys)
         path = os.path.join(exp.logger.log_dir, "test_volumes",
                             f"batch_{batch_idx}_pred.html")
         fig.write_html(path)
 
-def plot_volume(qs, ys, **plot_args):
+def plot_volume(qs, ys):
     fig = go.Figure(data=go.Volume(
         x=qs[:, 0],
         y=qs[:, 1],
-        z=qs[:, 2],
-        value=ys,
-        # isomin=-5.0,
-        # isomax=3.0,
+        z=qs[:, 3],
+        value=ys.squeeze(),
         opacity=0.2, # needs to be small to see through all surfaces
         surface_count=20, # needs to be a large number for good volume rendering
-        autocolorscale = True,
-        **plot_args,
+        # autocolorscale = True,
+        opacityscale = 'uniform',
+        colorscale='Sunset',
         ))
+    fig.update_layout(showlegend=True,
+                      scene = dict(
+                        xaxis_title='TIME',
+                        yaxis_title='X DIM',
+                        zaxis_title='Z DIM'))
     return fig
 
 # adapted from https://plotly.com/python/visualizing-mri-volume-slices/
@@ -265,17 +269,22 @@ def plot_volume_slice(qs:Tensor, ys:Tensor, n : int):
 def plot_motion_trace(fit_qs, fit_ys):
     fig = go.Figure( data =
         go.Scatter3d(
-            x = fit_qs[:, 1],
-            y = fit_qs[:, 0],
+            x = fit_qs[:, 0],
+            y = fit_qs[:, 1],
             z = fit_qs[:, 3],
             mode = 'markers',
             marker=dict(
-                size=12,
+                # size=12,
                 color=fit_ys.squeeze(),
                 colorscale='Sunset',
                 colorbar_title = 'L2 distance',),
             name = 'Fit'))
-    fig.update_layout(showlegend=True)
+    fig.update_layout(showlegend=True,
+                      scene = dict(
+                        xaxis_title='TIME',
+                        yaxis_title='X DIM',
+                        zaxis_title='Z DIM'))
+
     return fig
 
 def plot_3D_heatmap(qs:Tensor, ys:Tensor, t:int,
