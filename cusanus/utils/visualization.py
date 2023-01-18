@@ -111,8 +111,8 @@ class RenderKField(pl.Callback):
 
 class RenderKFieldVolumes(pl.Callback):
     def __init__(self,
-                 nt:int=5,
-                 nxyz:int=40,
+                 nt:int=8,
+                 nxyz:int=20,
                  delta:float=2.0):
         super().__init__()
         self.nt = nt
@@ -151,16 +151,21 @@ class RenderKFieldVolumes(pl.Callback):
         fig.write_html(path)
 
 def plot_volume(qs, ys):
+    slices = qs[:, 0].unique()
     fig = go.Figure(data=go.Volume(
         x=qs[:, 0],
         y=qs[:, 1],
         z=qs[:, 3],
-        value=ys.squeeze(),
-        opacity=0.2, # needs to be small to see through all surfaces
+        value=torch.log(ys).squeeze(),
+        opacity=0.3, # needs to be small to see through all surfaces
         surface_count=20, # needs to be a large number for good volume rendering
         # autocolorscale = True,
-        opacityscale = 'uniform',
+        opacityscale = 'min',
         colorscale='Sunset',
+        slices_x=dict(show=True,
+                      locations=slices),
+        caps= dict(x_show=False, y_show=False, z_show=False), # no caps
+        # surface=dict(fill=0.50, pattern='A+B'),
         ))
     fig.update_layout(showlegend=True,
                       scene = dict(

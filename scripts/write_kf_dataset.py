@@ -42,6 +42,9 @@ def main():
                     stats.push(q[1:])
             mean = stats.mean()
             stdev = stats.standard_deviation()
+            with open(f'/spaths/dataset/{name}_running_stats.yaml', 'w') as f:
+                yaml.safe_dump({'mean': mean, 'std':stdev}, f)
+
             print(f'Mean: {mean}, Std. Dev.: {stdev}')
         d = KFieldDataset(simulations, **c['kfield'],
                           mean = mean,

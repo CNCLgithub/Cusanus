@@ -21,7 +21,7 @@ def grids_along_axis(naxis : int, nres : int,
     return cube
 
 def motion_grids(nt : int, nxyz : int, delta:float = 1.0):
-    time = torch.linspace(0., 1.0, steps = nt)
+    time = torch.linspace(0., 2.0, steps = nt)
     xz = torch.linspace(-delta, delta, steps = nxyz)
     y = torch.zeros(1)
     tcube = torch.cartesian_prod(time, xz, y, xz)

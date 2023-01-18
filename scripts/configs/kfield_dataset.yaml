@@ -5,7 +5,8 @@ train:
     simulations:
         max_dur: 5.0
     kfield:
-        segment_dur: 500.0
+        k_per_frame: 5
+        nframes: 30
 
 val:
     scenes:
@@ -14,7 +15,8 @@ val:
     simulations:
         max_dur: 5.0
     kfield:
-        segment_dur: 500.0
+        k_per_frame: 5
+        nframes: 30
 
 test:
     scenes:
@@ -23,4 +25,5 @@ test:
     simulations:
         max_dur: 5.0
     kfield:
-        segment_dur: 500.0
+        k_per_frame: 5
+        nframes: 30

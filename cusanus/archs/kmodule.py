@@ -121,15 +121,34 @@ class KModule(nn.Module):
         b, _ = qs.shape
         t = qs[:, 0].unsqueeze(1)    # b x 1
         xyz = qs[:, 1:] # b x 3
-        # pmod, mmod = torch.chunk(m, 2)
-
-        # p0_exp = pmod.unsqueeze(0).expand(b, -1) # b x mdim
-
-        # qs_p0 = torch.cat([t, p0_exp],
-        #                   axis = 1)
-        # b x mdim
-        # pmods = self.motion_field(qs_p0, mmod)
-        pmods = self.motion_field(t, m)
-        ys = vmap(self.pos_field)(xyz, pmods)
+        # pmod <- motion_field(t | motion_code)
+        pmods = self.motion_field(t, m) # b x pdim
+        ys = vmap(self.pos_field)(xyz, pmods) # b x 1
         ys = self.act(ys)
         return ys
+
+# class EModule(nn.Module):
+
+#     def __init__(self,
+#                  mdim:int,
+#                  pdim:int,
+#                  edim:int,
+#                  inr_params:dict):
+
+#         super().__init__()
+#         self.mod = mdim + pdim
+#         self.inr = ImplicitNeuralModule(q_in = mdim + pdim,
+#                                         out = mdim,
+#                                         mod = edim,
+#                                         # Identity act
+#                                         sigmoid = False,
+#                                         **inr_params)
+
+#     def forward(self, qs:Tensor, m:Tensor):
+
+#         # b x (motion_code + t)
+#         ts = qs[:, 0]
+#         mcodes = qs[:, 1:]
+#         # b x position_code
+#         pcodes = self.kmodule(ts, mcodes)
+#         return self.inr(qs, m)
