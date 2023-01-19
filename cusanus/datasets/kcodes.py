@@ -71,10 +71,17 @@ class KTransitionDataset(FieldDataset):
         # compute non-parametric estimate of uncertaintity
         tend = t0 + (3 * segment_steps)
         qsB, _ = self.trial_from_sequence(xyz, t1, tend)
-        uqsB = self.add_noise(qsB) # TODO
-        uysB = self.module.eval_modulation(uqsB, m).detach().numpy()
-        uB = self.estimate_uncertainty(uysB) # TODO
+        t0 = np.random.randint(0, steps - self.segment_steps * 4)
+        t1 = t0 + self.segment_steps
+        tend = t0 + (4 * self.segment_steps)
+        seqA = position[t0:t1:self.steps_per_frame]
+        qsA, ysA = self.trial_from_sequence(seqA, t0 = 0) # TODO
+        m = self.module.fit_modulation(qsAB, ysAB)
 
+        # Evaluate fitted motion code on second sequence
+        # compute non-parametric estimate of uncertaintity
+        seqB = position[t1:tend:self.steps_per_frame]
+        qsB = self.trial_from_sequence(seqB, t0 = t1 - t0)
         # Find cutoff
         above_thresh = np.nonzero(uB > self.uthresh)
         if len(above_thresh) == 0:
