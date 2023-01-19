@@ -127,28 +127,22 @@ class KModule(nn.Module):
         ys = self.act(ys)
         return ys
 
-# class EModule(nn.Module):
+class EModule(nn.Module):
 
-#     def __init__(self,
-#                  mdim:int,
-#                  pdim:int,
-#                  edim:int,
-#                  inr_params:dict):
+    def __init__(self,
+                 mdim:int,
+                 pdim:int,
+                 edim:int,
+                 inr_params:dict):
 
-#         super().__init__()
-#         self.mod = mdim + pdim
-#         self.inr = ImplicitNeuralModule(q_in = mdim + pdim,
-#                                         out = mdim,
-#                                         mod = edim,
-#                                         # Identity act
-#                                         sigmoid = False,
-#                                         **inr_params)
+        super().__init__()
+        self.mod = mdim + pdim
+        self.inr = ImplicitNeuralModule(q_in = mdim + pdim,
+                                        out = mdim,
+                                        mod = edim,
+                                        # Identity act
+                                        sigmoid = False,
+                                        **inr_params)
 
-#     def forward(self, qs:Tensor, m:Tensor):
-
-#         # b x (motion_code + t)
-#         ts = qs[:, 0]
-#         mcodes = qs[:, 1:]
-#         # b x position_code
-#         pcodes = self.kmodule(ts, mcodes)
-#         return self.inr(qs, m)
+    def forward(self, k0:Tensor, m:Tensor):
+        return self.inr(k0, m)

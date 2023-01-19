@@ -50,14 +50,12 @@ class KFieldDataset(FieldDataset):
         _, position = self.simulations[idx]
         steps = position.shape[0]
 
-
         # sample time scale
         # fps = [15, 30, 60, 120]
         fps = 15.0 * 2**np.random.randint(0, 3)
         # physics steps per frame
         spf = int(240 / fps)
         segment_steps = self.segment_frames * spf
-
 
         # sample time range
         start = np.random.randint(0, steps - segment_steps)

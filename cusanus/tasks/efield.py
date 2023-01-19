@@ -6,13 +6,13 @@ from functorch import make_functional
 from torch.nn.functional import mse_loss, l1_loss
 
 from cusanus.pytypes import *
-from cusanus.archs import LatentModulation, KModule
+from cusanus.archs import LatentModulation, KModule, EModule
 from cusanus.tasks import ImplicitNeuralField
 
 from cusanus.tasks.inf import fit_and_eval
 
-class KField(ImplicitNeuralField):
-    """Implements kinematic spline fields
+class EField(ImplicitNeuralField):
+    """Implements kinematic event fields
 
     Arguments:
         inr: ImplicitNeuralModule, INR architecture
@@ -22,19 +22,27 @@ class KField(ImplicitNeuralField):
     """
 
     def __init__(self,
-                 module: KModule,
+                 module: EModule,
+                 kmodule: KModule,
                  inner_steps:int = 5,
                  lr:float = 0.001,
                  lr_inner:float = 0.001,
                  weight_decay:float = 0.001,
                  sched_gamma:float = 0.8) -> None:
         super(ImplicitNeuralField, self).__init__()
-        self.save_hyperparameters(ignore = 'module')
+        self.save_hyperparameters(ignore = ['module',
+                                            'kmodule'])
         self.module = module
+        self.kmodule = kmodule
 
-    def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-        pred_ys = pred
-        loss = mse_loss(ys, pred_ys)
+    """
+    Arguments:
+        qs:Tensor - position queries to eval
+        k1:Tensor - predicted motion code
+    """
+    def pred_loss(self, k0: Tensor, qs: Tensor, k1:Tensor):
+        ys = self.eval_kcode(qs, k1)
+        loss = torch.mean(ys**2)
         return loss
 
     @torch.enable_grad()
@@ -70,8 +78,7 @@ class KField(ImplicitNeuralField):
     def configure_optimizers(self):
 
         params = [
-            {'params': self.module.pos_field.theta.parameters()},
-            {'params': self.module.motion_field.theta.parameters()},
+            {'params': self.module.inr.theta.parameters()},
         ]
         optimizer = optim.Adam(params,
                                lr=self.hparams.lr,
