@@ -30,7 +30,9 @@ def main():
     for dname in ['train', 'val', 'test']:
         c = config[dname]
         scenes = SceneDataset(**c['scenes'])
-        simulations = SimDataset(scenes, **c['simulations'])
+        simulations = SimDataset(scenes, **c['simulations'],
+                                 debug=True
+                                 )
         if dname == 'train':
             d = KFieldDataset(simulations, **c['kfield'],
                               add_noise=False)

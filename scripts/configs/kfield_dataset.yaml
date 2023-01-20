@@ -1,7 +1,32 @@
 train:
     scenes:
         n_scenes: 100000
-        sphere_z_max: 6.0
+        table_extents: [2.0, 1.5]
+        table_z: 0.05
+        wall_depth: 0.05
+        wall_z: 0.1
+        gate_rng: [0.15, 0.3]
+        target_radius_rng: [0.05, 0.1]
+        target_gate_prob: 1.0
+        target_vel_rng: [1.9, 2.0]
+        table_phys:
+            mass: 0.
+            restitution: 0.01
+            lateralFriction: 0.99
+            rollingFriction: 0.0
+            spinningFriction: 0.1
+        wall_phys:
+            mass: 0.
+            restitution: 1.0
+            rollingFriction: 0.0
+            lateralFriction: 0.99
+            spinningFriction: 0.1
+        target_phys:
+            mass: 10.
+            restitution: 1.0
+            lateralFriction: 0.99
+            rollingFriction: 0.
+            spinningFriction: 0.1
     simulations:
         max_dur: 5.0
     kfield:
@@ -11,7 +36,6 @@ train:
 val:
     scenes:
         n_scenes: 10
-        sphere_z_max: 6.0
     simulations:
         max_dur: 5.0
     kfield:
@@ -21,7 +45,6 @@ val:
 test:
     scenes:
         n_scenes: 100
-        sphere_z_max: 6.0
     simulations:
         max_dur: 5.0
     kfield:

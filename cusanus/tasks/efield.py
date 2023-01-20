@@ -6,7 +6,7 @@ from functorch import make_functional
 from torch.nn.functional import mse_loss, l1_loss
 
 from cusanus.pytypes import *
-from cusanus.archs import LatentModulation, KModule, EModule
+from cusanus.archs import LatentModulation, KModule
 from cusanus.tasks import ImplicitNeuralField
 
 from cusanus.tasks.inf import fit_and_eval
@@ -22,7 +22,7 @@ class EField(ImplicitNeuralField):
     """
 
     def __init__(self,
-                 module: EModule,
+                 module: ImplicitNeuralModule,
                  kmodule: KModule,
                  inner_steps:int = 5,
                  lr:float = 0.001,

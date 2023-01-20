@@ -21,3 +21,7 @@ def sphere_to_bullet(radius:float, pos, cid:int):
                             basePosition = pos,
                             physicsClientId = cid)
     return oid
+
+# HACK : specialize using pybullets rect primitive
+def rect_to_bullet(mesh:Trimesh,  cid:int):
+    return mesh_to_bullet(mesh, cid)

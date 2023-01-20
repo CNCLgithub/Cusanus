@@ -52,6 +52,9 @@ class KTransitionDataset(FieldDataset):
 
     def __len__(self):
         return len(self.kf_dataset)
+
+    def trial_from_sequence(self, xyz, t0, t1):
+
 # Mean: [6.79334173e-01 4.53180075e-17 2.42131324e+00], Std. Dev.: [1.77139619e+00 7.34710679e-15 2.04555669e+00]
     def __getitem__(self, idx):
 
@@ -67,32 +70,9 @@ class KTransitionDataset(FieldDataset):
         qsA, ysA = self.trial_from_sequence(xyz, t0, t1) # TODO
         m = self.module.fit_modulation(qsA, ysA)
 
-        # Evaluate fitted motion code on second sequence
-        # compute non-parametric estimate of uncertaintity
-        tend = t0 + (3 * segment_steps)
-        qsB, _ = self.trial_from_sequence(xyz, t1, tend)
-        t0 = np.random.randint(0, steps - self.segment_steps * 4)
-        t1 = t0 + self.segment_steps
-        tend = t0 + (4 * self.segment_steps)
-        seqA = position[t0:t1:self.steps_per_frame]
-        qsA, ysA = self.trial_from_sequence(seqA, t0 = 0) # TODO
-        m = self.module.fit_modulation(qsAB, ysAB)
-
-        # Evaluate fitted motion code on second sequence
-        # compute non-parametric estimate of uncertaintity
-        seqB = position[t1:tend:self.steps_per_frame]
-        qsB = self.trial_from_sequence(seqB, t0 = t1 - t0)
-        # Find cutoff
-        above_thresh = np.nonzero(uB > self.uthresh)
-        if len(above_thresh) == 0:
-            # if kmod fits well then sample random segment
-            t2 = np.random.randint(t1, steps - segment_steps)
-            t3 = t2 + segment_steps
-        else:
-            # otherwise use cutoff
-            t2 = t1 + above_thresh[0]
-            t3 = t2 + segment_steps
-
+        # pick second segment
+        t2 = t1 + segment_steps
+        t3 = t2 + segment_steps
         qs, _ = self.trial_from_sequence(xyz, t2, t3)
 
         return kcode, qs
