@@ -36,6 +36,16 @@ def load_ffcv(p:str, device, **kwargs):
 
 class FieldDataset(Dataset, ABC):
 
+    @classmethod
+    @property
+    def dtype(cls):
+        return {'qs' : np.float32, 'ys' : np.float32}
+
+    @classmethod
+    @property
+    def parts(cls):
+        return ['qs', 'ys']
+
     @property
     @abstractmethod
     def qsize(self) -> int:
@@ -56,6 +66,11 @@ class FieldDataset(Dataset, ABC):
 
     def yshape(self) -> Tuple[int, int]:
         return (self.k_queries, self.ysize)
+
+    def enum_shape(self):
+        return {'qs' : self.qshape, 'ys' : self.yshape}
+
+
 
     def write_ffcv(self, path:str, **kwargs) -> None:
         write_ffcv(self, path, **kwargs)

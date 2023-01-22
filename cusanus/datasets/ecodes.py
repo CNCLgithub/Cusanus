@@ -4,37 +4,7 @@ from torch.utils.data import Dataset
 
 from cusanus.pytypes import *
 
-class KCodeDataset(Dataset):
-
-    def __init__(self,
-                 kf_dataset:KFieldDataset,
-                 module: KField,
-                 mean,
-                 std):
-
-        self.kf_dataset = kf_dataset
-        self.module = module
-        self.device = module.device
-        self.mean = mean
-        self.std = std
-
-    def __len__(self):
-        return len(self.kf_dataset)
-
-    def __getitem__(self, idx):
-
-        qs, ys = self.kf_dataset[idx]
-        qs = torch.tensor(qs, device = self.device)
-        ys = torch.tensor(ys, device = self.device)
-
-        mfunc, mparams = self.module.fit_modulation(qs, ys)
-        kcode = mfunc(mparams).detach().cpu().numpy()
-        qs = qs.detach().cpu().numpy()
-        ys = ys.detach().cpu().numpy()
-
-        return qs, ys, kcode
-
-class KTransitionDataset(FieldDataset):
+class ECodesDataset(FieldDataset):
 
     def __init__(self,
                  kf_dataset:KFieldDataset,
