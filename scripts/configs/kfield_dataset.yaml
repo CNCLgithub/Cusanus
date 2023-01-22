@@ -1,52 +1,44 @@
+physics:
+    table_extents: [3.0, 1.5]
+    table_z: 0.05
+    wall_depth: 0.05
+    wall_z: 0.1
+    gate_spacing: 0.3
+    gate_rng: [0.3, 1.0]
+    target_radius_rng: [0.05, 0.1]
+    target_gate_prob: 1.0
+    target_vel_rng: [2.0, 3.0]
+    table_phys:
+        mass: 0.
+        restitution: 0.1
+        lateralFriction: 0.99
+        rollingFriction: 0.00075
+        spinningFriction: 0.1
+    wall_phys:
+        mass: 0.
+        restitution: 1.5
+        rollingFriction: 0.0
+        lateralFriction: 0.99
+        spinningFriction: 0.1
+    target_phys:
+        mass: 5.
+        restitution: 1.0
+        lateralFriction: 0.99
+        rollingFriction: 0.
+        spinningFriction: 0.1
+
+simulations:
+    max_dur: 5.0
+
+kfield:
+    k_per_frame: 5
+    nframes: 30
+
 train:
-    scenes:
-        n_scenes: 100000
-        table_extents: [2.0, 1.5]
-        table_z: 0.05
-        wall_depth: 0.05
-        wall_z: 0.1
-        gate_rng: [0.15, 0.3]
-        target_radius_rng: [0.05, 0.1]
-        target_gate_prob: 1.0
-        target_vel_rng: [1.9, 2.0]
-        table_phys:
-            mass: 0.
-            restitution: 0.01
-            lateralFriction: 0.99
-            rollingFriction: 0.0
-            spinningFriction: 0.1
-        wall_phys:
-            mass: 0.
-            restitution: 1.0
-            rollingFriction: 0.0
-            lateralFriction: 0.99
-            spinningFriction: 0.1
-        target_phys:
-            mass: 10.
-            restitution: 1.0
-            lateralFriction: 0.99
-            rollingFriction: 0.
-            spinningFriction: 0.1
-    simulations:
-        max_dur: 5.0
-    kfield:
-        k_per_frame: 5
-        nframes: 30
+    n_scenes: 10000
 
 val:
-    scenes:
-        n_scenes: 10
-    simulations:
-        max_dur: 5.0
-    kfield:
-        k_per_frame: 5
-        nframes: 30
+   n_scenes: 10
 
 test:
-    scenes:
-        n_scenes: 100
-    simulations:
-        max_dur: 5.0
-    kfield:
-        k_per_frame: 5
-        nframes: 30
+    n_scenes: 100

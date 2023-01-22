@@ -27,16 +27,19 @@ def main():
     with open(f"/project/scripts/configs/{name}_dataset.yaml", 'r') as file:
         config = yaml.safe_load(file)
 
+    physics = config['physics']
+    sim = config['simulations']
+    kfield = config['kfield']
+
     for dname in ['train', 'val', 'test']:
         c = config[dname]
-        scenes = SceneDataset(**c['scenes'])
-        simulations = SimDataset(scenes, **c['simulations'],
-                                 debug=True
+        scenes = SceneDataset(**c, **physics)
+        simulations = SimDataset(scenes, **sim,
                                  )
         if dname == 'train':
-            d = KFieldDataset(simulations, **c['kfield'],
+            d = KFieldDataset(simulations, **kfield,
                               add_noise=False)
-            stats = RunningStats(3)
+            stats = RunningStats(d.qsize-1)
             for i in range(min(len(d), args.num_steps)):
                 print('step',i)
                 qs, ys = d[i]
@@ -44,11 +47,11 @@ def main():
                     stats.push(q[1:])
             mean = stats.mean()
             stdev = stats.standard_deviation()
-            with open(f'/spaths/dataset/{name}_running_stats.yaml', 'w') as f:
-                yaml.safe_dump({'mean': mean, 'std':stdev}, f)
+            with open(f'/spaths/datasets/{name}_running_stats.yaml', 'w') as f:
+                yaml.safe_dump({'mean': mean.tolist(), 'std':stdev.tolist()}, f)
 
             print(f'Mean: {mean}, Std. Dev.: {stdev}')
-        d = KFieldDataset(simulations, **c['kfield'],
+        d = KFieldDataset(simulations, **kfield,
                           mean = mean,
                           std = stdev,
                           add_noise=True)

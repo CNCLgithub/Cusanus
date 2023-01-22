@@ -15,7 +15,7 @@ class KModule(nn.Module):
 
         super().__init__()
         self.mod = mdim
-        self.pos_field = ImplicitNeuralModule(q_in = 3,
+        self.pos_field = ImplicitNeuralModule(q_in = 2,
                                               out = 1,
                                               mod = pdim,
                                               sigmoid = False,
@@ -31,13 +31,14 @@ class KModule(nn.Module):
     def forward(self, qs:Tensor, m:Tensor):
         b, _ = qs.shape
         t = qs[:, 0].unsqueeze(1)    # b x 1
-        xyz = qs[:, 1:] # b x 3
+        x = qs[:, 1:] # b x 2
         # pmod <- motion_field(t | motion_code)
         pmods = self.motion_field(t, m) # b x pdim
-        ys = vmap(self.pos_field)(xyz, pmods) # b x 1
+        ys = vmap(self.pos_field)(x, pmods) # b x 1
         ys = self.act(ys)
         return ys
 
+# TODO: move to own file
 class EModule(nn.Module):
 
     def __init__(self,
@@ -56,4 +57,5 @@ class EModule(nn.Module):
                                         **inr_params)
 
     def forward(self, k0:Tensor, m:Tensor):
-        return self.inr(k0, m)
+        k1 = self.inr(k0, m)
+        return k1

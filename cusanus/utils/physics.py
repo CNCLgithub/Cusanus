@@ -15,7 +15,7 @@ def mesh_to_bullet(mesh:Trimesh, cid:int):
 
 def sphere_to_bullet(radius:float, pos, cid:int):
     col_id = p.createCollisionShape(shapeType=p.GEOM_SPHERE,
-                                    radius = radius * 0.5,
+                                    radius = radius,
                                     physicsClientId = cid)
     oid = p.createMultiBody(baseCollisionShapeIndex=col_id,
                             basePosition = pos,

@@ -30,6 +30,7 @@ class SceneDataset(Dataset):
                  table_z:float = 0.05,
                  wall_depth:float=0.05,
                  wall_z:float = 0.1,
+                 gate_spacing:float=0.2,
                  gate_rng:List[float]=[0.1, 0.2],
                  target_radius_rng:List[float]=[0.05, 0.1],
                  target_vel_rng:List[float]=[1.0, 2.0],
@@ -44,6 +45,7 @@ class SceneDataset(Dataset):
         self.table_z = table_z
         self.wall_depth = wall_depth
         self.wall_z = wall_z
+        self.gate_spacing = gate_spacing
         # Random params
         self.gate_rng = gate_rng
         self.target_radius_rng = target_radius_rng
@@ -72,6 +74,9 @@ class SceneDataset(Dataset):
         ewall = _rect([0.5*xext, 0.5*xext+self.wall_depth],
                       [-0.5*yext, 0.5*yext],
                       [0., self.wall_z])
+        wwall = _rect([-0.5*xext-self.wall_depth, -0.5*xext],
+                      [-0.5*yext, 0.5*yext],
+                      [0., self.wall_z])
         scene = {
             'table' : {'geometry' : (table,),
                        'physics' : self.table_phys,
@@ -86,6 +91,10 @@ class SceneDataset(Dataset):
                        'record' : False,
                        'loader' : rect_to_bullet},
             'ewall' : {'geometry' : (ewall,),
+                       'physics' : self.wall_phys,
+                       'record' : False,
+                       'loader' : rect_to_bullet},
+            'wwall' : {'geometry' : (wwall,),
                        'physics' : self.wall_phys,
                        'record' : False,
                        'loader' : rect_to_bullet},
@@ -111,10 +120,12 @@ class SceneDataset(Dataset):
         ymin = -0.5*yext + 0.05 + width
         ymax =  0.5*yext - 0.05 - width
         ygate = np.random.uniform(ymin, ymax)
-        ygate_a = _rect([-0.5*xext-self.wall_depth, -0.5*xext],
+        ygate_a = _rect([-0.5*xext+self.gate_spacing,
+                         -0.5*xext+self.gate_spacing+self.wall_depth],
                         [-0.5*yext, ygate - 0.5 * width],
                         [0., self.wall_z])
-        ygate_b = _rect([-0.5*xext-self.wall_depth, -0.5*xext],
+        ygate_b = _rect([-0.5*xext+self.gate_spacing,
+                         -0.5*xext+self.gate_spacing+self.wall_depth],
                         [ygate + 0.5 * width, 0.5*yext],
                         [0., self.wall_z])
         gate_extents = [ygate - width, ygate + width]
@@ -123,23 +134,24 @@ class SceneDataset(Dataset):
     def sample_target(self, gate_extents):
         xext, yext = self.table_extents
         radius = np.random.uniform(*self.target_radius_rng)
-        if np.random.rand() > 1-self.target_gate_prob:
-            xpos = -0.5 * xext + radius
-            ymin = gate_extents[0] + radius
-            ymax = gate_extents[1] - radius
-            ypos = np.random.uniform(ymin, ymax)
-            angle = np.random.uniform(-0.4*np.pi, 0.4*np.pi)
-        else:
-            xpos = np.random.uniform(-0.5*xext + radius,
-                                      0.5*xext - radius)
-            ypos = np.random.uniform(-0.5*yext + radius,
-                                      0.5*yext - radius)
-            angle = np.random.uniform(0., 2*np.pi)
+        delta = radius + 4*self.wall_depth
+        # if np.random.rand() > 1-self.target_gate_prob:
+        #     xpos = -0.5 * xext + radius
+        #     ymin = gate_extents[0] + radius
+        #     ymax = gate_extents[1] - radius
+        #     ypos = np.random.uniform(ymin, ymax)
+        #     angle = np.random.uniform(-0.4*np.pi, 0.4*np.pi)
+        # else:
+        xpos = np.random.uniform(-0.5*xext + delta,
+                                 0.5*xext - delta)
+        ypos = np.random.uniform(-0.5*yext + delta,
+                                 0.5*yext - delta)
+        angle = np.random.uniform(0., 2*np.pi)
 
         mag = np.random.uniform(*self.target_vel_rng)
         vel = [np.cos(angle) * mag, np.sin(angle) * mag, 0.]
         # vel = [10.0, 0., 0.]
-        pos = [xpos, ypos, radius]
+        pos = [xpos, ypos, radius+0.01]
         target = {
             'geometry': (radius, pos),
             'physics' : self.target_phys,
@@ -238,7 +250,7 @@ class SimDataset(Dataset):
             # record collisions
             for c,(a,b) in enumerate(combinations(object_ids, 2)):
                 nc = len(p.getContactPoints(bodyA=a, bodyB=b,
-                                            physicsClientId = client))
+                                            physicsClientId = cid))
                 collision[steps, c] = nc > 0
 
             dur += delta_t

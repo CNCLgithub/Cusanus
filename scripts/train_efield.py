@@ -8,18 +8,23 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from cusanus.archs import KModule
-from cusanus.tasks import KField
+from cusanus.archs import ImplicitNeuralModule, KModule, EModule
+from cusanus.tasks import KField, EField
 from cusanus.datasets import load_ffcv
-from cusanus.utils.visualization import RenderKFieldVolumes
+from cusanus.utils.visualization import RenderEFieldVolumes
 
 
-task_name = 'kfield'
-dataset_name = 'kfield'
+task_name = 'efield'
+dataset_name = 'efield'
+
+def load_kfield(config:dict, ckpt_path:str):
+    arch = KModule(**config['arch_params'])
+    field = KField.load_from_checkpoint(ckpt_path, module = arch)
+    return field
 
 def main():
     parser = argparse.ArgumentParser(
-        description = 'Trains kfield',
+        description = 'Trains efield',
         formatter_class = argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('--version', type = int,
@@ -32,6 +37,8 @@ def main():
         version = args.version
     with open(f"/project/scripts/configs/{task_name}_task.yaml", 'r') as file:
         config = yaml.safe_load(file)
+    with open(f"/project/scripts/configs/kfield_task.yaml", 'r') as file:
+        kconfig = yaml.safe_load(file)
 
     logger = CSVLogger(save_dir=config['logging_params']['save_dir'],
                        name= task_name,
@@ -41,8 +48,9 @@ def main():
     seed_everything(config['manual_seed'], True)
 
     # initialize networks and task
-    arch = KModule(**config['arch_params'])
-    task = KField(arch, **config['task_params'])
+    emodule = EModule(**config['arch_params'])
+    kfield = load_kfield(kconfig, config['kfield_ckpt'])
+    task = EField(emodule, kfield, **config['task_params'])
 
     runner = Trainer(logger=logger,
                      callbacks=[
@@ -52,7 +60,7 @@ def main():
                                                                 "checkpoints"),
                                          monitor= "loss",
                                          save_last=True),
-                         RenderKFieldVolumes()
+                         RenderEFieldVolumes()
 
                      ],
                      accelerator = 'auto',

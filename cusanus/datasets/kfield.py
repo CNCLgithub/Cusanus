@@ -13,8 +13,8 @@ class KFieldDataset(FieldDataset):
                  sim_dataset:SimDataset,
                  k_per_frame:int = 5,
                  nframes:int = 30,
-                 mean:np.ndarray = np.zeros(3),
-                 std:np.ndarray = np.ones(3),
+                 mean:np.ndarray = np.zeros(2),
+                 std:np.ndarray = np.ones(2),
                  add_noise:bool = False,
                  ):
         self.simulations = sim_dataset
@@ -23,15 +23,15 @@ class KFieldDataset(FieldDataset):
         self._k_queries = nframes * k_per_frame
         self.mean = mean
         self.std = std
-        self.small_noise_rv = scipy.stats.norm(loc = np.zeros(3),
-                                               scale = np.ones(3))
-        self.large_noise_rv = scipy.stats.uniform(loc = -1*np.ones(3),
-                                                  scale = 2*np.ones(3))
+        self.small_noise_rv = scipy.stats.norm(loc = np.zeros(2),
+                                               scale = np.ones(2))
+        self.large_noise_rv = scipy.stats.uniform(loc = -1*np.ones(2),
+                                                  scale = 2*np.ones(2))
         self.add_noise = add_noise
 
     @property
     def qsize(self):
-        return 4
+        return 3
 
     @property
     def ysize(self):
@@ -47,7 +47,11 @@ class KFieldDataset(FieldDataset):
 
     def __getitem__(self, idx):
         # sample random initial scene and simulate
-        _, position = self.simulations[idx]
+        _, registry, state = self.simulations[idx]
+        target_id = registry['target']
+        # position of the target across time
+        # only want xy points
+        position = state['position'][:, target_id, :2]
         steps = position.shape[0]
         # sample time scale
         # fps = [15, 30, 60, 120]
@@ -57,6 +61,8 @@ class KFieldDataset(FieldDataset):
         segment_steps = self.segment_frames * spf
         # sample time range
         start = np.random.randint(0, steps - segment_steps)
+        stop = start + segment_steps
+        position = position[start:stop]
 
         # construct queries and outputs
         qs = np.empty((self.segment_frames, self.k_per_frame, self.qsize),
@@ -66,7 +72,7 @@ class KFieldDataset(FieldDataset):
         for t in range(self.segment_frames):
             tn = t / fps
             # normalized to mu 0, std 1
-            xyz = (position[t*spf] - self.mean) / self.std
+            x = (position[t*spf] - self.mean) / self.std
             for i in range(self.k_per_frame):
                 if self.add_noise:
                     # add small or large amounts of noise
@@ -75,9 +81,9 @@ class KFieldDataset(FieldDataset):
                     else:
                         noise = 3.0 * self.large_noise_rv.rvs()
                 else:
-                    noise = np.zeros(3)
+                    noise = np.zeros(2)
                 qs[t, i, 0] = tn
-                qs[t, i, 1:] = xyz + noise
+                qs[t, i, 1:] = x + noise
                 ys[t, i] = np.linalg.norm(noise)
 
         qs = qs.reshape((-1, self.qsize))
