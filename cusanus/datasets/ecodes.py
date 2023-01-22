@@ -6,36 +6,6 @@ from cusanus.pytypes import *
 from cusanus.datasets import FieldDataset, SimDataset
 from cusanus.tasks import KField
 
-# class KCodeDataset(Dataset):
-
-#     def __init__(self,
-#                  kf_dataset:KFieldDataset,
-#                  module: KField,
-#                  mean,
-#                  std):
-
-#         self.kf_dataset = kf_dataset
-#         self.module = module
-#         self.device = module.device
-#         self.mean = mean
-#         self.std = std
-
-#     def __len__(self):
-#         return len(self.kf_dataset)
-
-#     def __getitem__(self, idx):
-
-#         qs, ys = self.kf_dataset[idx]
-#         qs = torch.tensor(qs, device = self.device)
-#         ys = torch.tensor(ys, device = self.device)
-
-#         mfunc, mparams = self.module.fit_modulation(qs, ys)
-#         kcode = mfunc(mparams).detach().cpu().numpy()
-#         qs = qs.detach().cpu().numpy()
-#         ys = ys.detach().cpu().numpy()
-
-#         return qs, ys, kcode
-
 class EFieldDataset(FieldDataset):
 
     def __init__(self,
@@ -74,8 +44,6 @@ class EFieldDataset(FieldDataset):
         qs[:, 1:] = x[t0:t1:spf]
         return qs
 
-
-# Mean: [6.79334173e-01 4.53180075e-17 2.42131324e+00], Std. Dev.: [1.77139619e+00 7.34710679e-15 2.04555669e+00]
     def __getitem__(self, idx):
         # sample random initial scene and simulate
         _, registry, state = self.sim[idx]
