@@ -47,20 +47,6 @@ class EField(ImplicitNeuralField):
         return loss
 
 
-    def fit_kmod(self, qs: Tensor):
-        k,_ = qs.shape
-        ys = torch.zeros((k,1), device=qs.device,
-                           dtype=qs.dtype,
-                           requires_grad=qs.requires_grad)
-        mfunc, mparams = self.kfield.fit_modulation(qs, ys)
-        kmod = mfunc(mparams)
-        return kmod
-
-    def pos_code(self, qs:Tensor, kmod: Tensor):
-        t = torch.max(qs[:, 0]).unsqueeze(0)
-        pmod = self.kfield.module.motion_field(t, kmod)
-        return pmod
-
 
     def training_step(self, batch, batch_idx, optimizer_idx = 0):
         # qs for kmod_a , ys for kmod_b

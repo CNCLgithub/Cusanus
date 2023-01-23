@@ -1,12 +1,18 @@
 import os
 import h5py
+from tqdm import tqdm
+from typing import Type
 from torch.utils.data import Dataset
+
+from cusanus.pytypes import *
+from cusanus.datasets import SizedDataset
 
 
 def write_to_hdf5(d:SizedDataset, path:str):
     with h5py.File(path, 'w') as f:
         # class attributes
-        f.attrs['len'] = len(d)
+        n = len(d)
+        f.attrs['len'] = n
 
         # initialize hdf5 datasets
         # one dataset per part
@@ -21,10 +27,10 @@ def write_to_hdf5(d:SizedDataset, path:str):
                                        chunks=eshape,
                                        dtype=etype)
         # populate from dataset
-        for i in range(len(d)):
+        for i in tqdm(range(n)):
             trial = d[i]
-            for p,d in zip(d.parts, trial):
-                parts[p][i] = d
+            for p,data in zip(d.parts, trial):
+                parts[p][i] = data
     return None
 
 

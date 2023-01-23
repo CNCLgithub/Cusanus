@@ -10,6 +10,8 @@ class EFieldDataset(FieldDataset):
 
     def __init__(self,
                  sim:SimDataset,
+                 kfield:KField,
+                 gfield:GField,
                  segment_frames:int=30,
                  mean:np.ndarray=np.zeros(2),
                  std:np.ndarray=np.zeros(2),
@@ -43,6 +45,15 @@ class EFieldDataset(FieldDataset):
                                 self.segment_frames)
         qs[:, 1:] = x[t0:t1:spf]
         return qs
+
+    def fit_gcodes(self, scene:dict):
+        gcodes = {}
+        for (k,d) in scene.items():
+            qs, ys = sample_from_geo(d['geometry'])
+            gfunc, gparams = gfield.fit_modulation(qs, ys)
+            gcodes[k] = gfunc(gparams).detach().cpu().numpy()
+
+        return gcodes
 
     def __getitem__(self, idx):
         # sample random initial scene and simulate

@@ -6,12 +6,19 @@ import argparse
 import torch
 
 from cusanus.datasets import write_ffcv, RunningStats
-from cusanus.datasets import (KFieldDataset, SceneDataset, SimDataset,
-                              EFieldDataset)
+from cusanus.datasets import (SceneDataset,
+                              SimDataset,
+                              KCodesDataset,
+                              write_to_hdf5)
 from cusanus.archs import KModule
 from cusanus.tasks import KField
 
 name = 'efield'
+
+def load_kfield(config:dict, ckpt_path:str):
+    arch = KModule(**config['arch_params'])
+    field = KField.load_from_checkpoint(ckpt_path, module = arch)
+    return field
 
 def main():
     parser = argparse.ArgumentParser(
@@ -26,27 +33,31 @@ def main():
 
     with open(f"/project/scripts/configs/kfield_dataset.yaml", 'r') as file:
         config = yaml.safe_load(file)
-
     with open(f"/spaths/datasets/kfield_running_stats.yaml", 'r') as file:
         stats = yaml.safe_load(file)
+    with open(f"/project/scripts/configs/kfield_task.yaml", 'r') as file:
+        kconfig = yaml.safe_load(file)
+    with open(f"/project/scripts/configs/efield_dataset.yaml", 'r') as file:
+        efield = yaml.safe_load(file)
 
     physics = config['physics']
     sim = config['simulations']
-
-    with open(f"/project/scripts/configs/efield_dataset.yaml", 'r') as file:
-        efield = yaml.safe_load(file)
+    kfield = load_kfield(kconfig, efield['kfield_ckpt'])
+    device = 0 if torch.cuda.is_available() else None
+    kfield = kfield.to(device)
 
     for dname in ['train', 'val', 'test']:
         c = config[dname]
         scenes = SceneDataset(**c, **physics)
-        simulations = SimDataset(scenes, **sim,
-                                 )
-        d = EFieldDataset(simulations,
+        simulations = SimDataset(scenes, **sim)
+        d = KCodesDataset(simulations,
+                          kfield,
                           **efield['dataset'],
                           **stats)
         d[0]
-        dpath = f"/spaths/datasets/{name}_{dname}_dataset.beton"
-        d.write_ffcv(dpath, num_workers = args.num_workers)
+        dpath = f"/spaths/datasets/{name}_{dname}_dataset.hdf5"
+        write_to_hdf5(d, dpath)
+        # d.write_ffcv(dpath, num_workers = args.num_workers)
 
 if __name__ == '__main__':
     main()

@@ -1,2 +1,4 @@
+kfield_ckpt: "/spaths/checkpoints/kfield/version_1/checkpoints/last.ckpt"
+
 dataset:
     segment_frames: 30
