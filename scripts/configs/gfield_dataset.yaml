@@ -1,14 +1,21 @@
-sphere:
-    train:
-        n_shapes: 2000
-        k_queries: 1000
-        r_min: 0.75
-        r_max: 1.0
-        sigma: 3.0
-mesh:
-    train:
-        n_shapes: 5000
-        k_queries: 1000
-        delta_y: 0.1
-        delta_size: 0.2
-        qsigma: 1.0
+shapes:
+    rect_x_rng : [0.1, 6.0]
+    rect_y_rng : [0.05, 0.15]
+    rect_z: 0.1
+    sphere_prob: 0.0
+    sphere_radius_rng: [0.025, 0.4]
+
+gfield:
+    k_inside: 100
+    k_other: 225
+    k_outside: 25
+    qsigma: 3.1
+
+train:
+    n_shapes: 24000
+
+test:
+   n_shapes: 20
+
+val:
+    n_shapes: 10

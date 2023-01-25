@@ -9,7 +9,8 @@ import plotly.graph_objects as go
 from cusanus.pytypes import *
 from cusanus.utils.coordinates import (grids_along_depth,
                                        grids_along_axis,
-                                       motion_grids)
+                                       motion_grids,
+                                       gfield_grids)
 
 
 def aggregrate_depth_scans(qs : Tensor, ps : Tensor,
@@ -33,69 +34,23 @@ def aggregrate_depth_scans(qs : Tensor, ps : Tensor,
     return torchvision.utils.make_grid(batched_imgs,
                                        nrow = int(ny**(0.5)))
 
-
-class RenderGField(pl.Callback):
+class RenderGFieldVolumes(pl.Callback):
     def __init__(self,
-                 samples:int=30,
-                 batch_step:int=5,
-                 delta:float=3.0):
+                 n:int = 50,
+                 rng =(-2., 2.),
+                 ):
         super().__init__()
-        self.samples = samples
-        self.batch_step = batch_step
-        self.delta = delta
-
-    def on_train_batch_end(self, trainer, exp, outputs, batch, batch_idx):
-        # Skip for all other epochs
-        if (batch_idx % self.batch_step) == 0:
-            (qs, ys) = batch
-            qs = qs[0]
-            ys = ys[0]
-            pred_qs = grids_along_axis(self.samples,
-                                       self.samples,
-                                       delta = self.delta)
-            pred_qs = pred_qs.to(exp.device)
-            m = exp.fit_modulation(qs, ys)
-            pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
-            print(pred_ys.min(), pred_ys.max(), pred_ys.mean())
-            pred_qs = pred_qs.detach().cpu()
-            fig = plot_volume(pred_qs, pred_ys)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                f"epoch_{exp.current_epoch}" + \
-                                f"_batch_{batch_idx}.html")
-            fig.write_html(path)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                "latest_volume.html")
-            fig.write_html(path)
-            fig = plot_volume_slice(pred_qs, pred_ys, self.samples)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                f"epoch_{exp.current_epoch}" + \
-                                f"_batch_{batch_idx}_sliced.html")
-            fig.write_html(path)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                "latest_slice.html")
-            fig.write_html(path)
-
-class RenderKField(pl.Callback):
-    def __init__(self,
-                 nt:int=10,
-                 nxyz:int=30,
-                 batch_step:int=5,
-                 delta:float=1.0):
-        super().__init__()
-        self.nt = nt
-        self.nxyz = nxyz
-        self.batch_step = batch_step
-        self.delta = delta
+        self.n = n
+        self.rng = rng
 
     def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
+
         (qs, ys) = batch
         qs = qs[0].detach().cpu()
-        ys = ys[0].detach().cpu()
-        pred_ys = outputs['pred'].detach().cpu()
+        fig = plot_gfield_diff(qs, outputs['pred_diff'])
         path = os.path.join(exp.logger.log_dir, "volumes",
-                            "latest" + \
-                            f"_batch_{batch_idx}.html")
+                            f"batch_{batch_idx}_pred_diff.html")
         fig.write_html(path)
 
     def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
@@ -103,11 +58,61 @@ class RenderKField(pl.Callback):
         (qs, ys) = batch
         qs = qs[0].detach().cpu()
         ys = ys[0].detach().cpu()
-        pred_ys = outputs['pred'].detach().cpu()
+        # fig = plot_gfield_diff(qs, outputs['pred_diff'])
+        fig = plot_gfield_diff(qs, ys)
         path = os.path.join(exp.logger.log_dir, "test_volumes",
-                            f"_batch_{batch_idx}.html")
+                            f"batch_{batch_idx}_pred_diff.html")
+        fig.write_html(path)
+        m = outputs['mod']
+        pred_qs = gfield_grids(self.n, self.rng)
+        pred_qs = pred_qs.to(exp.device)
+        pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
+        pred_qs = pred_qs.detach().cpu()
+        fig = plot_gfield_surface(pred_qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_pred.html")
         fig.write_html(path)
 
+
+def plot_gfield_diff(qs, ys):
+    fig = go.Figure( data =
+        go.Scatter(
+            x = qs[:, 0],
+            y = qs[:, 1],
+            mode = 'markers',
+            marker=dict(
+                # size=12,
+                color=ys.squeeze(),
+                colorbar_title = 'Distance',),
+            name = 'Diff: GT - PRED'))
+    fig.update_layout(showlegend=True,
+                      plot_bgcolor='black',
+                      width=800,
+                      height=800,
+                      scene = dict(
+                        xaxis_title='X DIM',
+                        yaxis_title='Y DIM'))
+
+    return fig
+
+def plot_gfield_surface(qs, ys):
+    fig = go.Figure(data=go.Heatmap(
+        x=qs[:, 0].unique(),
+        y=qs[:, 1].unique(),
+        z=ys.exp().reshape(50, 50),
+        # colorscale='Balance',
+        ))
+    fig.update_layout(showlegend=True,
+                      scene = dict(
+                        xaxis_title='X DIM',
+                        yaxis_title='Y DIM',
+                          zaxis_title='OCC'),
+                      width=800,
+                      height=800
+                      )
+    fig.update_scenes(aspectmode='cube',
+                      aspectratio={'x': 1. , 'y': 1})
+    return fig
 
 class RenderKFieldVolumes(pl.Callback):
     def __init__(self,
@@ -177,31 +182,44 @@ class RenderEFieldVolumes(pl.Callback):
 
     def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
-        (qs, ys) = batch
-        fit_qs = ys[0].detach().cpu()
-        fit_ys = outputs['pred']
-        fig = plot_motion_trace(fit_qs, fit_ys)
+        (_, ys) = batch
+        gt_k1 = ys[0]
+        pred_k1 = outputs['pred']
+        qs = motion_grids(self.nt, self.trange,
+                          self.nx, self.xrange,
+                          self.ny, self.yrange)
+        qs = qs.to(exp.device)
+        gt_ys = exp.kfield.module(qs, gt_k1).detach().cpu()
+        pred_ys = exp.kfield.module(qs, pred_k1).detach().cpu()
+        qs = qs.detach().cpu()
+
+        fig = plot_motion_volume(qs, gt_ys)
         path = os.path.join(exp.logger.log_dir, "volumes",
-                            f"batch_{batch_idx}.html")
+                            f"batch_{batch_idx}_gt.html")
+        fig.write_html(path)
+        fig = plot_motion_volume(qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "volumes",
+                            f"batch_{batch_idx}_pred.html")
         fig.write_html(path)
 
     def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
-        (qs, ys) = batch
-        fit_qs = ys[0].detach().cpu()
-        fit_ys = outputs['pred']
-        m = outputs['kmod']
-        pred_qs = motion_grids(self.nt, self.trange,
-                               self.nx, self.xrange,
-                               self.ny, self.yrange)
-        pred_qs = pred_qs.to(exp.device)
-        pred_ys = exp.kfield.module(pred_qs, m).detach().cpu()
-        pred_qs = pred_qs.detach().cpu()
-        fig = plot_motion_trace(fit_qs, fit_ys)
+        (_, ys) = batch
+        gt_k1 = ys[0]
+        pred_k1 = outputs['pred']
+        qs = motion_grids(self.nt, self.trange,
+                          self.nx, self.xrange,
+                          self.ny, self.yrange)
+        qs = qs.to(exp.device)
+        gt_ys = exp.kfield.module(qs, gt_k1).detach().cpu()
+        pred_ys = exp.kfield.module(qs, pred_k1).detach().cpu()
+        qs = qs.detach().cpu()
+
+        fig = plot_motion_volume(qs, gt_ys)
         path = os.path.join(exp.logger.log_dir, "test_volumes",
-                            f"batch_{batch_idx}_fit.html")
+                            f"batch_{batch_idx}_gt.html")
         fig.write_html(path)
-        fig = plot_motion_volume(pred_qs, pred_ys)
+        fig = plot_motion_volume(qs, pred_ys)
         path = os.path.join(exp.logger.log_dir, "test_volumes",
                             f"batch_{batch_idx}_pred.html")
         fig.write_html(path)

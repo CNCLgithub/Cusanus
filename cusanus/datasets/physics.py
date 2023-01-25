@@ -135,13 +135,6 @@ class SceneDataset(Dataset):
         xext, yext = self.table_extents
         radius = np.random.uniform(*self.target_radius_rng)
         delta = radius + 4*self.wall_depth
-        # if np.random.rand() > 1-self.target_gate_prob:
-        #     xpos = -0.5 * xext + radius
-        #     ymin = gate_extents[0] + radius
-        #     ymax = gate_extents[1] - radius
-        #     ypos = np.random.uniform(ymin, ymax)
-        #     angle = np.random.uniform(-0.4*np.pi, 0.4*np.pi)
-        # else:
         xpos = np.random.uniform(-0.5*xext + delta,
                                  0.5*xext - delta)
         ypos = np.random.uniform(-0.5*yext + delta,

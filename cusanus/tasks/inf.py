@@ -41,8 +41,8 @@ class ImplicitNeuralField(pl.LightningModule):
         opt_state = opt.init(mparams)
         return (opt, opt_state)
 
-    def pred_loss(self, ys: Tensor, pred_ys: Tensor):
-        return torch.mean(mse_loss(pred_ys, ys))
+    def pred_loss(self, qs: Tensor, ys: Tensor, pred_ys: Tensor):
+        return mse_loss(pred_ys, ys)
 
     def backward(self, loss, optimizer, optimizer_idx):
         loss.backward()   # average loss of all modulations
@@ -54,8 +54,8 @@ class ImplicitNeuralField(pl.LightningModule):
         qs, ys = batch
         # Fitting modulations for current generation
         # In parallel, trains one mod per task.
-        vloss = vmap(partial(inner_modulation_loop, self),
-                     randomness = 'different')
+        vloss = vmap(partial(inner_modulation_loop, self))
+
         # fit modulations on batch - returns averaged loss
         # Compute the maml loss by summing together the returned losses.
         mod_losses = torch.mean(vloss(qs, ys))

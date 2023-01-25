@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from cusanus.archs import ImplicitNeuralModule, KModule, EModule
 from cusanus.tasks import KField, EField
-from cusanus.datasets import load_ffcv
+from cusanus.datasets import KCodesDataset
 from cusanus.utils.visualization import RenderEFieldVolumes
 
 
@@ -71,11 +71,11 @@ def main():
 
     # CONFIGURE FFCC DATA LOADERS
     dpath_train = f"/spaths/datasets/{dataset_name}_train_dataset.beton"
-    train_loader = load_ffcv(dpath_train, device,
-                             **config['loader_params'])
+    train_loader = KCodesDataset.load_ffcv(dpath_train, device,
+                                           **config['loader_params'])
     dpath_val = f"/spaths/datasets/{dataset_name}_val_dataset.beton"
-    val_loader = load_ffcv(dpath_val, device,
-                           batch_size = 1)
+    val_loader = KCodesDataset.load_ffcv(dpath_val, device,
+                                         batch_size = 1)
 
     # BEGIN TRAINING
     Path(f"{logger.log_dir}/volumes").mkdir(exist_ok=True, parents=True)

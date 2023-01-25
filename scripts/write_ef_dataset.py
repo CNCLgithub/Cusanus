@@ -9,7 +9,8 @@ from cusanus.datasets import write_ffcv, RunningStats
 from cusanus.datasets import (SceneDataset,
                               SimDataset,
                               KCodesDataset,
-                              write_to_hdf5)
+                              write_to_hdf5,
+                              H5Dataset)
 from cusanus.archs import KModule
 from cusanus.tasks import KField
 
@@ -56,8 +57,11 @@ def main():
                           **stats)
         d[0]
         dpath = f"/spaths/datasets/{name}_{dname}_dataset.hdf5"
-        write_to_hdf5(d, dpath)
-        # d.write_ffcv(dpath, num_workers = args.num_workers)
+        # write_to_hdf5(d, dpath)
+        dh5 = H5Dataset(d, dpath)
+        dh5[0]
+        dpath = f"/spaths/datasets/{name}_{dname}_dataset.beton"
+        dh5.write_ffcv(dpath, num_workers = args.num_workers)
 
 if __name__ == '__main__':
     main()

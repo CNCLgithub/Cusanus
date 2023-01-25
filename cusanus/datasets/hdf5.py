@@ -35,18 +35,30 @@ def write_to_hdf5(d:SizedDataset, path:str):
 
 
 
-class H5Dataset(Dataset):
+class H5Dataset(SizedDataset):
 
     def __init__(self, d:Type[SizedDataset], src:str):
         self.d = d
         self.src = h5py.File(src, 'r')
 
     def __len__(self):
-        return src.attrs['len']
+        return self.src.attrs['len']
+
+    @property
+    def parts(self):
+        return self.d.parts
+
+    @property
+    def dtype(self):
+        return self.d.dtype
+
+    @property
+    def enum_shape(self):
+        return self.d.enum_shape
 
     def __getitem__(self, idx):
         trial = []
         for p in self.d.parts:
             part = self.src[p][idx]
             trial.append(part)
-        return trial
+        return tuple(trial)

@@ -20,6 +20,14 @@ def grids_along_axis(naxis : int, nres : int,
     cube = cube.roll(lead).reshape(-1,3)
     return cube
 
+def gfield_grids(n: int, rng : Tuple[float, float]):
+    x = torch.linspace(*rng, steps = n)
+    g = torch.cartesian_prod(x, x)
+    # reorder axis
+    g = g.reshape(-1,2)
+    return g
+
+
 def motion_grids(nt : int, trange : Tuple[float, float],
                  nx : int, xrange : Tuple[float, float],
                  ny : int, yrange : Tuple[float, float]):

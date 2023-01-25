@@ -1,3 +1,4 @@
+import torch
 from abc import ABC, abstractmethod
 from torch.utils.data import Dataset
 from typing import Type
@@ -44,7 +45,7 @@ def write_ffcv(d:SizedDataset, path:str, **writer_kwargs):
     writer = DatasetWriter(path, fields, **writer_kwargs)
     writer.from_indexed_dataset(d)
 
-def load_ffcv(cls:Type[SizedDataset], p:str, device, **kwargs):
+def load_ffcv(cls:SizedDataset, p:str, device, **kwargs):
     pipes = {}
     for part in cls.parts:
         pipe = [NDArrayDecoder(),

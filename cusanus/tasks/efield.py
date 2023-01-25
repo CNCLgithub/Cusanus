@@ -36,38 +36,6 @@ class EField(ImplicitNeuralField):
         self.module = module
         self.kfield = kfield
 
-    """
-    Arguments:
-        qs:Tensor - position queries to eval
-        k1:Tensor - predicted motion code
-    """
-    def pred_loss(self, k0: Tensor, qs: Tensor, k1:Tensor):
-        ys = self.kfield.module(qs, k1)
-        loss = torch.mean(ys**2) + torch.mean(k1**2)
-        return loss
-
-
-
-    def training_step(self, batch, batch_idx, optimizer_idx = 0):
-        # qs for kmod_a , ys for kmod_b
-        qs, ys = batch
-
-        # motion codes
-        vkmods = vmap(self.fit_kmod)(qs)
-        # also need pos code
-        vpmods = vmap(self.pos_code)(qs, vkmods)
-        vmods = torch.cat((vkmods, vpmods),
-                          axis = -1)
-        vmods = vmods.detach().requires_grad_()
-
-        # Fitting modulations for current generation
-        # In parallel, trains one mod per task.
-        vloss = vmap(partial(inner_modulation_loop, self))
-        # fit modulations on batch - returns averaged loss
-        # Compute the maml loss by summing together the returned losses.
-        mod_losses = torch.mean(vloss(vmods, ys))
-        self.log('loss', mod_losses.item())
-        return mod_losses # overriding `backward`. See above
 
     @torch.enable_grad()
     @torch.inference_mode(False)
@@ -75,18 +43,13 @@ class EField(ImplicitNeuralField):
         (qs, ys) = batch
         qs = qs[0]
         ys = ys[0]
-        kmod = self.fit_kmod(qs)
-        pmod = self.pos_code(qs, kmod)
-        k = torch.cat((kmod, pmod), axis = -1)
-        m = self.fit_modulation(k, ys)
-        k2 = self.eval_modulation(m, k)
+        m = self.fit_modulation(qs, ys)
+        k2 = self.eval_modulation(m, qs)
         pred_loss = self.pred_loss(qs, ys, k2).detach().cpu()
-        pred_ys = self.kfield.module(qs, k2).detach().cpu()
         self.log('test_loss', pred_loss)
         return {'loss' : pred_loss,
                 'mod' : m,
-                'kmod': k2,
-                'pred':pred_ys}
+                'pred':k2}
 
     @torch.enable_grad()
     @torch.inference_mode(False)
@@ -94,17 +57,13 @@ class EField(ImplicitNeuralField):
         (qs, ys) = batch
         qs = qs[0]
         ys = ys[0]
-        kmod = self.fit_kmod(qs)
-        pmod = self.pos_code(qs, kmod)
-        k = torch.cat((kmod, pmod), axis = -1)
-        m = self.fit_modulation(k, ys)
-        k2 = self.eval_modulation(m, k)
+        m = self.fit_modulation(qs, ys)
+        k2 = self.eval_modulation(m, qs)
         pred_loss = self.pred_loss(qs, ys, k2).detach().cpu()
-        pred_ys = self.kfield.module(qs, k2).detach().cpu()
         self.log('val_loss', pred_loss)
         return {'loss' : pred_loss,
                 'mod' : m,
-                'pred':pred_ys}
+                'pred':k2}
 
     def configure_optimizers(self):
 

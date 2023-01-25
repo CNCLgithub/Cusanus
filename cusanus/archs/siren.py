@@ -148,6 +148,6 @@ class ImplicitNeuralModule(nn.Module):
         # and is not optimized
         self.psi = Modulator(mod, hidden, depth - 1)
 
-    def forward(self, qs:Tensor, m) -> Tensor:
+    def forward(self, qs:Tensor, m: Tensor) -> Tensor:
         phi = self.psi(m) # shift modulations
         return self.theta(qs, phi)
