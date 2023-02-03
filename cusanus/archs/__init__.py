@@ -3,4 +3,5 @@ from . siren import (ImplicitNeuralModule,
                      SirenNet,
                      ModulatedSirenNet,
                      Sine)
+from . gmodule import GModule
 from . kmodule import KModule, EModule

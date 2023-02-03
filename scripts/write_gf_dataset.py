@@ -22,7 +22,7 @@ def main():
                         default = -1)
     parser.add_argument('--num_steps', type = int,
                         help = 'Number of steps for running stats',
-                        default = 5000)
+                        default = 200)
     args = parser.parse_args()
 
 
@@ -34,25 +34,25 @@ def main():
     gfield = config['gfield']
     for dname in ['train', 'val', 'test']:
         scenes = ShapeDataset(**shapes, **config[dname])
-        # if dname == 'train':
-        #     d = GFieldDataset(scenes, **gfield)
-        #     stats = RunningStats(d.qsize)
-        #     steps = min(len(d), args.num_steps)
-        #     print('Computing running stats')
-        #     for i in tqdm(range(steps)):
-        #         qs, ys = d[i]
-        #         for q in qs:
-        #             stats.push(q)
-        #     mean = stats.mean()
-        #     stdev = stats.standard_deviation()
-        #     with open(f'/spaths/datasets/{name}_running_stats.yaml', 'w') as f:
-        #         yaml.safe_dump({'mean': mean.tolist(), 'std':stdev.tolist()}, f)
+        if dname == 'train':
+            d = GFieldDataset(scenes, **gfield)
+            stats = RunningStats(d.qsize)
+            steps = min(len(d), args.num_steps)
+            print('Computing running stats')
+            for i in tqdm(range(steps)):
+                qs, ys = d[i]
+                for q in qs:
+                    stats.push(q)
+            mean = stats.mean()
+            stdev = stats.standard_deviation()
+            with open(f'/spaths/datasets/{name}_running_stats.yaml', 'w') as f:
+                yaml.safe_dump({'mean': mean.tolist(), 'std':stdev.tolist()}, f)
 
-        #     print(f'Mean: {mean}, Std. Dev.: {stdev}')
-        # d = GFieldDataset(scenes, **gfield,
-        #                   qmean = mean,
-        #                   qstd = stdev)
-        d = GFieldDataset(scenes, **gfield, test = dname == 'test')
+            print(f'Mean: {mean}, Std. Dev.: {stdev}')
+        d = GFieldDataset(scenes, **gfield,
+                          qmean = mean,
+                          qstd = stdev)
+        # d = GFieldDataset(scenes, **gfield, test = dname == 'test')
         d[0]
 
         print('Writing to .beton')

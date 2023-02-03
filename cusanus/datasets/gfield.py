@@ -41,7 +41,8 @@ class ShapeDataset(Dataset):
                        self.rect_z]
             obj = trimesh.primitives.Box(extents = extents)
             # apply random rotation along z-axis
-            theta = np.random.uniform(0, np.pi)
+            # theta = np.random.choice([0, np.pi/2])
+            theta = np.random.uniform(0, 2*np.pi)
             rm = trimesh.transformations.rotation_matrix(theta, [0., 0., 1])
             obj.apply_transform(rm)
             ocf = partial(mesh_occupancy_field, obj)
@@ -58,8 +59,9 @@ class ShapeDataset(Dataset):
 class GFieldDataset(FieldDataset):
 
     def __init__(self, shapes:ShapeDataset,
+                 k:int = 1000,
                  k_inside:int = 100,
-                 k_other:int = 100,
+                 # k_other:int = 100,
                  k_outside:int = 100,
                  qsigma:float = 3.0,
                  qmean:np.ndarray=np.zeros(2),
@@ -68,10 +70,10 @@ class GFieldDataset(FieldDataset):
                  ) -> None:
         self.shapes = shapes
         self.k_inside = k_inside
-        self.k_other = k_other
+        # self.k_other = k_other
         self.k_outside = k_outside
         self._k_queries = k_inside + k_outside
-        self._k_queries = k_inside + k_other + k_outside
+        # self._k_queries = k
         self.qsigma = qsigma
         self.qmean = qmean
         self.scene_bounds = [qsigma, qsigma]
@@ -98,26 +100,28 @@ class GFieldDataset(FieldDataset):
         # sample target object
         obj, ocf = self.shapes.sample_ocf()
 
-        # sample another object
-        other, _ = self.shapes.sample_ocf()
+        # # sample another object
+        # other, _ = self.shapes.sample_ocf()
 
         # sample qs
         qs = np.zeros((self.k_queries, 3), dtype = np.float32)
         # inside object
         qs_in = query_inside(obj, self.k_inside)
         qs[:self.k_inside, :2] = qs_in
-        # other
-        qs_other = query_around(obj, self.k_other)
-        qs[self.k_inside:-self.k_outside, :2] = qs_other
+        # # other
+        # qs_other = query_around(obj, self.k_other)
+        # qs[self.k_inside:-self.k_outside, :2] = qs_other
         # outside object
-        # qs[-self.k_outside:, :2] = np.random.normal(scale=self.qsigma,
-        #                                             size=(self.k_outside,2))
-        qs[-self.k_outside:, :2] = sample_inside_bounds(self.scene_bounds,
-                                                        self.k_outside)
+        sigma = self.qsigma * obj.extents[:2]
+        qs[-self.k_outside:, :2] = np.random.normal(scale = sigma,
+                                                    size=(self.k_outside, 2))
+
+        # qs[-self.k_outside:, :2] = sample_inside_bounds(self.scene_bounds,
+        #                                                 self.k_outside)
         # comput occupancy outputs
         ys = ocf(qs).astype(np.float32)
         # only xy points
-        qs = (qs[:, :2]).astype(np.float32)
+        qs = ((qs[:, :2] - self.qmean/self.qstd)).astype(np.float32)
         return (qs, ys)
 
 def sample_inside_bounds(bounds, k, s:float = 2.0):
@@ -147,8 +151,8 @@ def query_around(obj, k:int):
         bounds = 0.5 * mesh.extents[:2]
 
     kq = np.floor(np.sqrt(k)).astype(int)
-    xbounds = (-2*bounds[0], 2*bounds[0])
-    ybounds = (-2*bounds[1], 2*bounds[1])
+    xbounds = (-1.5*bounds[0], 1.5*bounds[0])
+    ybounds = (-1.5*bounds[1], 1.5*bounds[1])
     xs = np.linspace(*xbounds, kq)
     ys = np.linspace(*ybounds, kq)
     qx,qy = np.meshgrid(xs,ys)
@@ -164,6 +168,9 @@ def spherical_occupancy_field(r: float, qs: np.ndarray):
 
 def mesh_occupancy_field(mesh, qs: np.ndarray):
     return mesh.contains(qs)
+
+# def _mesh_contains(mesh, qs):
+#     x,y,z = mesh.
 
 # def spherical_occupancy_field(r: float, qs: np.ndarray):
 #     return np.linalg.norm(qs, axis = 1) - r

@@ -1,25 +1,30 @@
 manual_seed: 1234
 
 arch_params:
-    mod: 12
-    q_in: 2
-    out: 1
-    hidden: 128
-    depth: 8
-    w0_initial: 7.5
-    w0: 1.0
-    c: 6.0
-    sigmoid: 1
+    sdim: 2
+    odim: 12
+    sf_params:
+        theta_hidden: 48
+        depth: 3
+        w0_initial: 1.0
+        w0: 1.0
+        c: 6.0
+    of_params:
+        hidden: 64
+        depth: 8
+        w0_initial: 15.0
+        w0: 1.0
+        c: 6.0
 
 task_params:
     inner_steps: 5
-    lr: 0.00025
+    lr: 0.00001
     weight_decay: 0.0
     sched_gamma: 0.99
-    lr_inner: 0.025
+    lr_inner: 0.001
 
 loader_params:
-  batch_size: 256
+  batch_size: 32
   num_workers: 8
 
 trainer_params:

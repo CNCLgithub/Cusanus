@@ -6,16 +6,15 @@ shapes:
     sphere_radius_rng: [0.025, 0.4]
 
 gfield:
-    k_inside: 100
-    k_other: 225
-    k_outside: 25
-    qsigma: 3.1
+    k_inside: 1000
+    k_outside: 1000
+    qsigma: 3.0
 
 train:
-    n_shapes: 24000
+    n_shapes: 2000
 
 test:
-   n_shapes: 20
+   n_shapes: 10
 
 val:
     n_shapes: 10

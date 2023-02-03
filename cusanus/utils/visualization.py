@@ -37,7 +37,7 @@ def aggregrate_depth_scans(qs : Tensor, ps : Tensor,
 class RenderGFieldVolumes(pl.Callback):
     def __init__(self,
                  n:int = 50,
-                 rng =(-2., 2.),
+                 rng =(-4., 4.),
                  ):
         super().__init__()
         self.n = n

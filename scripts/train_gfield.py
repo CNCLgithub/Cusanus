@@ -8,7 +8,7 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from cusanus.archs import ImplicitNeuralModule
+from cusanus.archs import GModule
 from cusanus.tasks import GField
 from cusanus.datasets import GFieldDataset
 from cusanus.utils import RenderGFieldVolumes
@@ -42,7 +42,7 @@ def main():
     seed_everything(config['manual_seed'], True)
 
     # initialize networks and task
-    arch = ImplicitNeuralModule(**config['arch_params'])
+    arch = GModule(**config['arch_params'])
     task = GField(arch, **config['task_params'])
 
     runner = Trainer(logger=logger,

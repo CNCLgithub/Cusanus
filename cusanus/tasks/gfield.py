@@ -33,3 +33,17 @@ class GField(ImplicitNeuralField):
     @torch.inference_mode(False)
     def validation_step(self, batch, batch_idx):
         return self.test_step(batch, batch_idx)
+
+    def configure_optimizers(self):
+
+        params = [
+            {'params': self.module.scale_field.parameters()},
+            {'params': self.module.occ_field.theta.parameters()},
+        ]
+        optimizer = optim.Adam(params,
+                               lr=self.hparams.lr,
+                               weight_decay=self.hparams.weight_decay)
+        gamma = self.hparams.sched_gamma
+        scheduler = optim.lr_scheduler.ExponentialLR(optimizer,
+                                                     gamma = gamma)
+        return [optimizer], [scheduler]
