@@ -1,30 +1,28 @@
 manual_seed: 1234
 
+kfield_ckpt: "/spaths/checkpoints/kfield/version_1/checkpoints/last.ckpt"
+
 arch_params:
-    sdim: 2
-    odim: 12
-    sf_params:
-        theta_hidden: 48
-        depth: 3
-        w0_initial: 1.0
-        w0: 1.0
-        c: 6.0
-    of_params:
-        hidden: 64
+    mdim: 16
+    pdim: 8
+    edim: 16
+    inr_params:
         depth: 8
-        w0_initial: 15.0
+        hidden: 64
+        w0_initial: 2.0
         w0: 1.0
         c: 6.0
+
 
 task_params:
+    lr_inner: 0.01
     inner_steps: 5
-    lr: 0.00001
+    lr: 0.000005
     weight_decay: 0.0
     sched_gamma: 0.99
-    lr_inner: 0.001
 
 loader_params:
-  batch_size: 32
+  batch_size: 150
   num_workers: 8
 
 trainer_params:

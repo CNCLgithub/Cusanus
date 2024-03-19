@@ -1,15 +1,17 @@
-# Ensembles
+# Event-driven Simulation
 
-Ensembles powered by normalizing flow
+A new mode of mental simulation for Intuitive Physics
 
 ## Setup and running
-1. Clone repository `git clone https://github.com/CNCLgithub/Ensembles` and `cd Ensembles`
-2. Get deps using `git submodule update --init --recursive`
-2. Run `./env.d/setup.sh cont_pull python julia` to build the container and setup python and Julia.
-3. Enter `./env.d/run.sh julia` to get into Julia REPL
 
-This project has automatic configuration!! This configuration is defined in `default.conf`.
-You should always prepend `./run.sh` before any command (including running programs like `julia`) to ensure consistency. 
+1. Clone repository and cd into root directory
+2. Get any deps using `git submodule update --init --recursive` (could be empty)
+3. Download the [container](https://drive.google.com/uc?export=download&id=1Cw1BDlvIyE8thDVfpMfHL9khGxBKtHoX) and place under `env.d`
+4. Run `./env.d/setup.sh all` to setup the environment.
+5. Enter `./env.d/run.sh COMMAND` to run command through the project environment (e.g., python script or julia REPL)
+
+This project has automatic configuration. This configuration is defined in `env.d/default.conf`.
+You should always prepend `env.d/run.sh` before any command (including running programs like `julia`) to ensure consistency. 
 If you wish to have different values than `default.conf`, simply:
 
 ``` sh
@@ -18,15 +20,14 @@ vi user.conf # edit to your liking without adding new elements
 ```
 ### Mac and Window users
 
-In order to use singularity you must have a virtual machine running. 
-Assuming you have vagrant (and something like virtualbox) setup on your host, you can follow these steps
+In order to use apptainer/singularity, please refer to the official instructions: http://apptainer.org/docs/admin/latest/installation.html#installation-on-windows-or-mac
 
 ## Contributing
 
 ### Contributing Rules
 
 
-1. Place all re-used code in packages (`src`)
+1. Place all re-used code in packages (`src` or `cusanus`)
 2. Place all interactive code in `scripts`
 3. Do not use "hard" paths. Instead refer to the paths in `SPATHS`.
 4. Add contributions to branches derived from `master` or `dev`

@@ -4,11 +4,13 @@ import torchvision
 import numpy as np
 import pytorch_lightning as pl
 from pathlib import Path
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from cusanus.pytypes import *
 from cusanus.utils.coordinates import (grids_along_depth,
                                        grids_along_axis,
-                                       motion_grids)
+                                       motion_grids,
+                                       gfield_grids)
 
 
 def aggregrate_depth_scans(qs : Tensor, ps : Tensor,
@@ -32,113 +34,218 @@ def aggregrate_depth_scans(qs : Tensor, ps : Tensor,
     return torchvision.utils.make_grid(batched_imgs,
                                        nrow = int(ny**(0.5)))
 
-
-class RenderGField(pl.Callback):
+class RenderGFieldVolumes(pl.Callback):
     def __init__(self,
-                 samples:int=30,
-                 batch_step:int=5,
-                 delta:float=3.0):
+                 n:int = 50,
+                 rng =(-4., 4.),
+                 ):
         super().__init__()
-        self.samples = samples
-        self.batch_step = batch_step
-        self.delta = delta
+        self.n = n
+        self.rng = rng
 
-    def on_train_batch_end(self, trainer, exp, outputs, batch, batch_idx):
-        # Skip for all other epochs
-        if (batch_idx % self.batch_step) == 0:
-            (qs, ys) = batch
-            qs = qs[0]
-            ys = ys[0]
-            pred_qs = grids_along_axis(self.samples,
-                                       self.samples,
-                                       delta = self.delta)
-            pred_qs = pred_qs.to(exp.device)
-            m = exp.fit_modulation(qs, ys)
-            pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
-            print(pred_ys.min(), pred_ys.max(), pred_ys.mean())
-            pred_qs = pred_qs.detach().cpu()
-            fig = plot_volume(pred_qs, pred_ys)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                f"epoch_{exp.current_epoch}" + \
-                                f"_batch_{batch_idx}.html")
-            fig.write_html(path)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                "latest_volume.html")
-            fig.write_html(path)
-            fig = plot_volume_slice(pred_qs, pred_ys, self.samples)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                f"epoch_{exp.current_epoch}" + \
-                                f"_batch_{batch_idx}_sliced.html")
-            fig.write_html(path)
-            path = os.path.join(exp.logger.log_dir, "volumes",
-                                "latest_slice.html")
-            fig.write_html(path)
+    def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
 
-class RenderKField(pl.Callback):
+        (qs, ys) = batch
+        qs = qs[0].detach().cpu()
+        fig = plot_gfield_diff(qs, outputs['pred_diff'])
+        path = os.path.join(exp.logger.log_dir, "volumes",
+                            f"batch_{batch_idx}_pred_diff.html")
+        fig.write_html(path)
+
+    def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (qs, ys) = batch
+        qs = qs[0].detach().cpu()
+        ys = ys[0].detach().cpu()
+        # fig = plot_gfield_diff(qs, outputs['pred_diff'])
+        fig = plot_gfield_diff(qs, ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_pred_diff.html")
+        fig.write_html(path)
+        m = outputs['mod']
+        pred_qs = gfield_grids(self.n, self.rng)
+        pred_qs = pred_qs.to(exp.device)
+        pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
+        pred_qs = pred_qs.detach().cpu()
+        fig = plot_gfield_surface(pred_qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_pred.html")
+        fig.write_html(path)
+
+
+def plot_gfield_diff(qs, ys):
+    fig = go.Figure( data =
+        go.Scatter(
+            x = qs[:, 0],
+            y = qs[:, 1],
+            mode = 'markers',
+            marker=dict(
+                # size=12,
+                color=ys.squeeze(),
+                colorbar_title = 'Distance',),
+            name = 'Diff: GT - PRED'))
+    fig.update_layout(showlegend=True,
+                      plot_bgcolor='black',
+                      width=800,
+                      height=800,
+                      scene = dict(
+                        xaxis_title='X DIM',
+                        yaxis_title='Y DIM'))
+
+    return fig
+
+def plot_gfield_surface(qs, ys):
+    fig = go.Figure(data=go.Heatmap(
+        x=qs[:, 0].unique(),
+        y=qs[:, 1].unique(),
+        z=ys.exp().reshape(50, 50),
+        # colorscale='Balance',
+        ))
+    fig.update_layout(showlegend=True,
+                      scene = dict(
+                        xaxis_title='X DIM',
+                        yaxis_title='Y DIM',
+                          zaxis_title='OCC'),
+                      width=800,
+                      height=800
+                      )
+    fig.update_scenes(aspectmode='cube',
+                      aspectratio={'x': 1. , 'y': 1})
+    return fig
+
+class RenderKFieldVolumes(pl.Callback):
     def __init__(self,
-                 nt:int=10,
-                 nxyz:int=30,
-                 batch_step:int=5,
-                 delta:float=10.0):
+                 nt:int=8,
+                 trange=(0., 1.),
+                 nx:int = 20,
+                 xrange=(-3., 3.),
+                 ny:int = 20,
+                 yrange=(-3., 3.),
+                 ):
         super().__init__()
         self.nt = nt
-        self.nxyz = nxyz
-        self.batch_step = batch_step
-        self.delta = delta
+        self.trange = trange
+        self.nx = nx
+        self.xrange = xrange
+        self.ny = ny
+        self.yrange = yrange
 
     def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
                                 data_loader_idx):
         (qs, ys) = batch
-        qs = qs[0].detach().cpu().squeeze()
-        ys = ys[0].detach().cpu()
-        _, loc, std = outputs['pred']
-        loc = loc.detach().cpu()
-        std = torch.sum(std.detach().cpu(),
-                         axis = 1)
-        exp.log('val_std', torch.mean(std))
-        std *= 10.0
-        fig = go.Figure(
-            data=[
-                go.Scatter3d(
-                x=loc[:,0],
-                y=qs,
-                z=loc[:,2],
-                marker=dict(
-                    size=std,
-                    color=qs,
-                    colorscale='Sunset',
-                    opacity=0.8
-                ),
-            ),
-            go.Scatter3d(
-                x=ys[:,0],
-                y=qs,
-                z=ys[:,2],
-                mode='markers',
-                marker=dict(
-                    # size=10.,
-                    color=qs,
-                    colorscale='Sunset',
-                    opacity=1.0)),])
-        fig.update_scenes(aspectmode = 'data')
+        fit_qs = qs[0].detach().cpu()
+        fit_ys = outputs['pred']
+        fig = plot_motion_trace(fit_qs, fit_ys)
         path = os.path.join(exp.logger.log_dir, "volumes",
-                            "latest" + \
-                            f"_batch_{batch_idx}.html")
+                            f"batch_{batch_idx}.html")
         fig.write_html(path)
 
-def plot_volume(qs, ys, **plot_args):
+    def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (qs, ys) = batch
+        fit_qs = qs[0].detach().cpu()
+        fit_ys = outputs['pred']
+        m = outputs['mod']
+        pred_qs = motion_grids(self.nt, self.trange,
+                               self.nx, self.xrange,
+                               self.ny, self.yrange)
+        pred_qs = pred_qs.to(exp.device)
+        pred_ys = exp.eval_modulation(m, pred_qs).detach().cpu()
+        pred_qs = pred_qs.detach().cpu()
+        fig = plot_motion_trace(fit_qs, fit_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_fit.html")
+        fig.write_html(path)
+        fig = plot_motion_volume(pred_qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_pred.html")
+        fig.write_html(path)
+
+
+class RenderEFieldVolumes(pl.Callback):
+    def __init__(self,
+                 nt:int=8,
+                 trange=(0., 1.),
+                 nx:int = 20,
+                 xrange=(-3., 3.),
+                 ny:int = 20,
+                 yrange=(-3., 3.),
+                 ):
+        super().__init__()
+        self.nt = nt
+        self.trange = trange
+        self.nx = nx
+        self.xrange = xrange
+        self.ny = ny
+        self.yrange = yrange
+
+    def on_validation_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (_, ys) = batch
+        gt_k1 = ys[0]
+        pred_k1 = outputs['pred']
+        qs = motion_grids(self.nt, self.trange,
+                          self.nx, self.xrange,
+                          self.ny, self.yrange)
+        qs = qs.to(exp.device)
+        gt_ys = exp.kfield.module(qs, gt_k1).detach().cpu()
+        pred_ys = exp.kfield.module(qs, pred_k1).detach().cpu()
+        qs = qs.detach().cpu()
+
+        fig = plot_motion_volume(qs, gt_ys)
+        path = os.path.join(exp.logger.log_dir, "volumes",
+                            f"batch_{batch_idx}_gt.html")
+        fig.write_html(path)
+        fig = plot_motion_volume(qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "volumes",
+                            f"batch_{batch_idx}_pred.html")
+        fig.write_html(path)
+
+    def on_test_batch_end(self, trainer, exp, outputs, batch, batch_idx,
+                                data_loader_idx):
+        (_, ys) = batch
+        gt_k1 = ys[0]
+        pred_k1 = outputs['pred']
+        qs = motion_grids(self.nt, self.trange,
+                          self.nx, self.xrange,
+                          self.ny, self.yrange)
+        qs = qs.to(exp.device)
+        gt_ys = exp.kfield.module(qs, gt_k1).detach().cpu()
+        pred_ys = exp.kfield.module(qs, pred_k1).detach().cpu()
+        qs = qs.detach().cpu()
+
+        fig = plot_motion_volume(qs, gt_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_gt.html")
+        fig.write_html(path)
+        fig = plot_motion_volume(qs, pred_ys)
+        path = os.path.join(exp.logger.log_dir, "test_volumes",
+                            f"batch_{batch_idx}_pred.html")
+        fig.write_html(path)
+
+def plot_motion_volume(qs, ys):
+    slices = qs[:, 0].unique()
     fig = go.Figure(data=go.Volume(
-        x=qs[:, 0],
-        y=qs[:, 1],
-        z=qs[:, 2],
-        value=ys,
-        # isomin=-5.0,
-        # isomax=3.0,
-        opacity=0.2, # needs to be small to see through all surfaces
+        x=qs[:, 1],
+        y=qs[:, 2],
+        z=qs[:, 0],
+        value=torch.log(ys).squeeze(),
+        opacity=0.3, # needs to be small to see through all surfaces
         surface_count=20, # needs to be a large number for good volume rendering
-        autocolorscale = True,
-        **plot_args,
+        # autocolorscale = True,
+        opacityscale = 'min',
+        colorscale='Sunset',
+        slices_z=dict(show=True,
+                      locations=slices),
+        caps= dict(x_show=False, y_show=False, z_show=False), # no caps
+        # surface=dict(fill=0.50, pattern='A+B'),
         ))
+    fig.update_layout(showlegend=True,
+                      scene = dict(
+                        xaxis_title='X DIM',
+                        yaxis_title='Y DIM',
+                        zaxis_title='TIME'))
     return fig
 
 # adapted from https://plotly.com/python/visualizing-mri-volume-slices/
@@ -238,58 +345,52 @@ def plot_volume_slice(qs:Tensor, ys:Tensor, n : int):
     return fig
 
 
-def plot_motion_trace(qs, ys, **plot_args):
-    fig = go.Figure(data=go.Scatter3d(
-        x=qs[:,1], y=qs[:,2], z=qs[:,3],
-        opacity=ys,
-        marker=dict(
-            size=4,
-            color=qs[:, 0],
-            colorscale='Viridis',
-        ),
-        line=dict(
-            color='darkblue',
-            width=2
-        )
-    ))
+def plot_motion_trace(fit_qs, fit_ys):
+    fig = go.Figure( data =
+        go.Scatter3d(
+            x = fit_qs[:, 1],
+            y = fit_qs[:, 2],
+            z = fit_qs[:, 0],
+            mode = 'markers',
+            marker=dict(
+                # size=12,
+                color=fit_ys.squeeze(),
+                colorscale='Sunset',
+                colorbar_title = 'L2 distance',),
+            name = 'Fit'))
+    fig.update_layout(showlegend=True,
+                      scene = dict(
+                        xaxis_title='X DIM',
+                        yaxis_title='Y DIM',
+                        zaxis_title='TIME'))
+
     return fig
 
-def plot_motion_volumes(qs:Tensor, ys:Tensor, t:int,
-                        **plot_args):
+def plot_3D_heatmap(qs:Tensor, ys:Tensor, t:int,
+                    **plot_args):
 
     volume = ys.reshape((t, -1))
     coords = qs.reshape((t, -1, 4))
     ts = coords[:, 0, 0]
 
     fig = go.Figure(frames=[
-        go.Frame(
-            data=go.Volume(
+        go.Frame( data=go.Heatmap(
             x=coords[k, :, 1],
-            y=coords[k, :, 2],
-            z=coords[k, :, 3],
-            value=volume[k],
-            # isomin=-5.0,
-            # isomax=3.0,
-            opacity=0.2, # needs to be small to see through all surfaces
-            surface_count=15, # needs to be a large number for good volume rendering
-            # autocolorscale = True,
-            **plot_args,
+            y=coords[k, :, 3],
+            z=volume[k],
+            type = 'heatmap',
+            colorscale = 'Sunset'
         ),
         name=str(k))
     for k in range(t)])
 
     # Add data to be displayed before animation starts
-    fig.add_trace(go.Volume(
-        x=coords[0, :, 1],
-        y=coords[0, :, 2],
-        z=coords[0, :, 3],
-        value=volume[0],
-        # isomin=0-5.0,
-        # isomax=3.0,
-        opacity=0.2, # needs to be small to see through all surfaces
-        surface_count=15, # needs to be a large number for good volume rendering
-        # autocolorscale = True,
-        **plot_args,
+    fig.add_trace(go.Heatmap(
+            x=coords[0, :, 1],
+            y=coords[0, :, 3],
+            z=volume[0],
+            type = 'heatmap',
+            colorscale = 'Sunset'
         ))
 
     def frame_args(duration):

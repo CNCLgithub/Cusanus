@@ -1,40 +1,21 @@
-import torch
 import numpy as np
-from copy import deepcopy
 from abc import ABC, abstractmethod
-from torch.utils.data import Dataset
-from ffcv.writer import DatasetWriter
-from ffcv.fields import NDArrayField
-from ffcv.fields.decoders import NDArrayDecoder
-from ffcv.loader import Loader, OrderOption
-from ffcv.transforms import (Convert, NormalizeImage, ToTensor,
-    ToDevice)
 
 from cusanus.pytypes import *
+from cusanus.datasets import SizedDataset
 
-def write_ffcv(d:Dataset, path:str, **writer_kwargs):
-    fields = {
-        'qs': NDArrayField(dtype = np.dtype('float32'),
-                            shape = d.qshape()),
-        'ys': NDArrayField(dtype = np.dtype('float32'),
-                            shape = d.yshape()),
-    }
-    writer = DatasetWriter(path, fields, **writer_kwargs)
-    writer.from_indexed_dataset(d)
+class FieldDataset(SizedDataset, ABC):
 
-def load_ffcv(p:str, device, **kwargs):
-    ps = {}
-    for k in ['qs', 'ys']:
-        ps[k] = [NDArrayDecoder(),
-                 ToTensor(),
-                 Convert(torch.float32)]
-        if not device is None:
-            ps[k].append(ToDevice(device))
-    return Loader(p, pipelines = ps, order = OrderOption(2),
-                  **kwargs)
+    @classmethod
+    @property
+    def dtype(cls):
+        return {'qs' : np.dtype('float32'),
+                'ys' : np.dtype('float32')}
 
-
-class FieldDataset(Dataset, ABC):
+    @classmethod
+    @property
+    def parts(cls):
+        return ['qs', 'ys']
 
     @property
     @abstractmethod
@@ -51,11 +32,15 @@ class FieldDataset(Dataset, ABC):
     def k_queries(self) -> int:
         pass
 
+    @property
     def qshape(self) -> Tuple[int, int]:
         return (self.k_queries, self.qsize)
 
+    @property
     def yshape(self) -> Tuple[int, int]:
         return (self.k_queries, self.ysize)
 
-    def write_ffcv(self, path:str, **kwargs) -> None:
-        write_ffcv(self, path, **kwargs)
+    @property
+    def enum_shape(self):
+        return {'qs' : self.qshape, 'ys' : self.yshape}
+

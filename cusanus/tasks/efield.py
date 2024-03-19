@@ -2,17 +2,18 @@ import torch
 from torch import nn
 from torch import optim
 import pytorch_lightning as pl
-from functorch import make_functional
+from functools import partial
+from functorch import make_functional, vmap
 from torch.nn.functional import mse_loss, l1_loss
 
 from cusanus.pytypes import *
-from cusanus.archs import LatentModulation, KModule
-from cusanus.tasks import ImplicitNeuralField
+from cusanus.archs import LatentModulation, ImplicitNeuralModule
+from cusanus.tasks import ImplicitNeuralField, KField
 
-from cusanus.tasks.inf import fit_and_eval
+from cusanus.tasks.inf import inner_modulation_loop
 
-class KField(ImplicitNeuralField):
-    """Implements kinematic spline fields
+class EField(ImplicitNeuralField):
+    """Implements kinematic event fields
 
     Arguments:
         inr: ImplicitNeuralModule, INR architecture
@@ -22,20 +23,19 @@ class KField(ImplicitNeuralField):
     """
 
     def __init__(self,
-                 module: KModule,
+                 module: ImplicitNeuralModule,
+                 kfield: KField,
                  inner_steps:int = 5,
                  lr:float = 0.001,
                  lr_inner:float = 0.001,
                  weight_decay:float = 0.001,
                  sched_gamma:float = 0.8) -> None:
         super(ImplicitNeuralField, self).__init__()
-        self.save_hyperparameters(ignore = 'module')
+        self.save_hyperparameters(ignore = ['module',
+                                            'kfield'])
         self.module = module
+        self.kfield = kfield
 
-    def pred_loss(self, qs: Tensor, ys: Tensor, pred):
-        pred_ys = pred
-        loss = mse_loss(ys, pred_ys)
-        return loss
 
     @torch.enable_grad()
     @torch.inference_mode(False)
@@ -44,12 +44,12 @@ class KField(ImplicitNeuralField):
         qs = qs[0]
         ys = ys[0]
         m = self.fit_modulation(qs, ys)
-        pred = self.eval_modulation(m, qs)
-        pred_loss = self.pred_loss(qs, ys, pred).detach().cpu()
+        k2 = self.eval_modulation(m, qs)
+        pred_loss = self.pred_loss(qs, ys, k2).detach().cpu()
         self.log('test_loss', pred_loss)
         return {'loss' : pred_loss,
                 'mod' : m,
-                'pred':pred.detach().cpu()}
+                'pred':k2}
 
     @torch.enable_grad()
     @torch.inference_mode(False)
@@ -58,20 +58,17 @@ class KField(ImplicitNeuralField):
         qs = qs[0]
         ys = ys[0]
         m = self.fit_modulation(qs, ys)
-        pred = self.eval_modulation(m, qs)
-        pred_loss = self.pred_loss(qs, ys, pred).detach().cpu()
+        k2 = self.eval_modulation(m, qs)
+        pred_loss = self.pred_loss(qs, ys, k2).detach().cpu()
         self.log('val_loss', pred_loss)
         return {'loss' : pred_loss,
                 'mod' : m,
-                'pred':pred.detach().cpu()}
-
-
+                'pred':k2}
 
     def configure_optimizers(self):
 
         params = [
-            {'params': self.module.pos_field.theta.parameters()},
-            {'params': self.module.motion_field.theta.parameters()},
+            {'params': self.module.inr.theta.parameters()},
         ]
         optimizer = optim.Adam(params,
                                lr=self.hparams.lr,

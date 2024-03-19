@@ -8,10 +8,10 @@ from pytorch_lightning.loggers import CSVLogger
 from lightning_lite.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from cusanus.archs import PQSplineModule
-from cusanus.tasks import KSplineField
+from cusanus.archs import KModule
+from cusanus.tasks import KField
 from cusanus.datasets import load_ffcv
-from cusanus.utils.visualization import RenderKField
+from cusanus.utils.visualization import RenderKFieldVolumes
 
 
 task_name = 'kfield'
@@ -41,9 +41,8 @@ def main():
     seed_everything(config['manual_seed'], True)
 
     # initialize networks and task
-    arch = PQSplineModule(**config['arch_params'])
-    arch.train()
-    task = KSplineField(arch, **config['task_params'])
+    arch = KModule(**config['arch_params'])
+    task = KField(arch, **config['task_params'])
 
     runner = Trainer(logger=logger,
                      callbacks=[
@@ -53,7 +52,7 @@ def main():
                                                                 "checkpoints"),
                                          monitor= "loss",
                                          save_last=True),
-                         RenderKField(batch_step = 500)
+                         RenderKFieldVolumes()
 
                      ],
                      accelerator = 'auto',
@@ -61,8 +60,6 @@ def main():
                      **config['trainer_params'])
 
     device = runner.device_ids[0] if torch.cuda.is_available() else None
-    arch.to(device)
-    task.to(device)
 
     # CONFIGURE FFCC DATA LOADERS
     dpath_train = f"/spaths/datasets/{dataset_name}_train_dataset.beton"

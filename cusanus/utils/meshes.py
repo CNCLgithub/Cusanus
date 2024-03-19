@@ -3,6 +3,14 @@ from cusanus.pytypes import *
 import trimesh
 import numpy as np
 
+def center_mesh(mesh):
+    c = mesh.centroid
+    T = trimesh.transformations.translation_matrix(-c)
+    m = mesh.copy()
+    m.apply_transform(T)
+    return m
+
+
 def sheered_rect_prism(extents, theta:float):
     box = trimesh.primitives.Box(extents=extents)
     # theta 0 = dz 0
