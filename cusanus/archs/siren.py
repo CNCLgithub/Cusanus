@@ -1,20 +1,25 @@
 # Several chunks cribbed from
 # https://github.com/lucidrains/siren-pytorch/blob/master/siren_pytorch/siren_pytorch.py
-import math
-import torch
-from torch import nn
-import torch.nn.functional as F
+import equinox as eqx
+import jax
+import jax.numpy as jnp
+import jax.random as jr
 
 from cusanus.pytypes import *
 
-class Sine(nn.Module):
-    def __init__(self, w0 = 1.):
-        super().__init__()
-        self.w0 = w0
-    def forward(self, x):
-        return torch.sin(self.w0 * x)
+class Sine(eqx.Module):
+    w0: float
 
-class Siren(nn.Module):
+    def __init__(self, w0 = 1.):
+        self.w0 = w0
+
+    def __call__(self, x):
+        return jnp.sin(self.w0 * x)
+
+class Siren(eqx.Module):
+    linear: eqx.nn.Linear
+    bias: Array
+
     def __init__(self, dim_in:int, dim_out:int,
                  w0:float = 1., w_std:float = 1.,
                  bias = True, activation = True):
