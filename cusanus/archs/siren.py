@@ -25,9 +25,12 @@ class Siren(eqx.Module):
                  bias = True, activation = True):
         super().__init__()
         self.linear = nn.Linear(dim_in, dim_out, bias = bias)
+        # REVIEW
+        # Initialization is important
         nn.init.uniform_(self.linear.weight, a = -w_std, b = w_std)
         if bias:
             nn.init.uniform_(self.linear.bias, a = -w_std, b = w_std)
+        # REVIEW: get rid of conditional?
         self.activation = Sine(w0) if activation else nn.Identity()
 
     def forward(self, x:Tensor):
