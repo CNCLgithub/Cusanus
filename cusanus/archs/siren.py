@@ -5,9 +5,9 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 
-from cusanus.pytypes import *
 
 class Sine(eqx.Module):
+
     w0: float
 
     def __init__(self, w0 = 1.):
@@ -33,129 +33,227 @@ class Siren(eqx.Module):
         # REVIEW: get rid of conditional?
         self.activation = Sine(w0) if activation else nn.Identity()
 
-    def forward(self, x:Tensor):
+    def __call__(self, x):
         x =  self.linear(x)
-        return self.activation(x)
+        y = Sine(self.sine_weight)(x)
+        return y
 
 
-class SirenNet(nn.Module):
+class SirenNet(eqx.Module):
+    '''SirenNet model.
+
+    Args:
+        in_features: Input size.
+        hidden_features: Hidden layer size.
+        out_features: Output layer size.
+        num_layers: Number of layers.
+        sine_weight: Sine activation weight for hidden layers.
+        sine_weight_initial: Sine activation weight for first layer.
+        c:
+        use_bias: Flag for using biases or not.
+        final_activation: Activation function of final layer.
+    '''
+    in_features: int
+    hidden_features: int
+    out_features: int
+    num_layers: int
+    layers: list
+    last_layer: eqx.Module
+    final_activation: callable
+
     def __init__(self,
-                 theta_in:int,
-                 theta_hidden:int,
-                 theta_out:int,
-                 depth:int,
-                 w0 = 1.0,
-                 w0_initial = 15.0,
-                 c = 6.0,
-                 use_bias = True,
-                 final_activation = nn.Sigmoid):
+                 key: jax.random.key,
+                 in_features: int,
+                 hidden_features: int,
+                 out_features: int,
+                 num_layers: int,
+                 sine_weight: float = 1.0,
+                 sine_weight_initial: float = 15.0,
+                 c: float = 6.0,
+                 use_bias: bool = True,
+                 final_activation = jax.nn.sigmoid) -> None:
         super().__init__()
-        self.depth = depth
-        self.layers = nn.ModuleList([])
-        w_std = math.sqrt(c / theta_hidden) / w0
-        for l in range(depth - 1):
-            layer = Siren(
-                dim_in = theta_in if l == 0 else theta_hidden,
-                dim_out = theta_hidden,
-                w0 = w0_initial if l == 0 else w0,
-                w_std = 1.0 / theta_in if l == 0 else w_std,
-                bias = use_bias,
-                activation = True,
+        self.num_layers = num_layers
+        self.in_features = in_features
+        self.hidden_features = hidden_features
+        self.out_features = out_features
+        self.final_activation = final_activation
+        w_std = jnp.sqrt(c / hidden_features) / sine_weight
+        layers = []
+        for l in range(num_layers-1):
+            key, _key = jax.random.split(key)
+            layers.append(
+                Siren(
+                    key=_key,
+                    in_features=in_features if l == 0 else hidden_features,
+                    out_features=hidden_features,
+                    sine_weight=sine_weight_initial if l == 0 else sine_weight,
+                    w_std=1.0 / in_features if l == 0 else w_std,
+                    use_bias=use_bias,
+                )
             )
-            self.layers.append(layer)
-        self.last_layer = nn.Sequential(Siren(dim_in = theta_hidden,
-                                              dim_out = theta_out, w0 = w0,
-                                              bias = use_bias, activation = False),
-                                        final_activation())
+        self.layers = layers
+        key, _key = jax.random.split(key)
+        self.last_layer = eqx.nn.Linear(
+            key=_key, in_features=hidden_features, out_features=out_features)
 
-    def forward(self, x:Tensor):
-        for l in range(self.depth - 1):
+    def __call__(self, x: Array):
+        '''Forward pass through the model.
+        
+        Args:
+            x: Model input.
+        
+        Returns:
+            y: Model output.
+        '''
+        for l in range(self.num_layers - 1):
             x = self.layers[l](x)
-        x = self.last_layer(x)
-        return x
+        y = self.last_layer(x)
+        y = self.final_activation(y)
+        return y
+
 
 class ModulatedSirenNet(SirenNet):
+    '''Class for modulated SirenNet.
+    
+    Wraps around SirenNet class and overrides the forward method. Note this
+    changes arity of from 1 to 2:
+    SirenNet.forward() -> ModulatedSirenNet.forward(x, phi).
+    '''
 
-    def forward(self, x:Tensor, phi:Tensor):
-        for l in range(self.depth - 1):
-            x = self.layers[l](x) + phi[l]
-        x = self.last_layer(x)
-        return x
+    # pylint: disable=arguments-differ
+    def __call__(self, x:Array, phi:Array):
+        '''Forward pass through the model.
 
-class LatentModulation(nn.Module):
+        Note:
+            The overwritten forward method changes the arity of
+            SirenNet.forward(x) from 1 to 2 in
+            ModulateSirenNet.forward(x, phi).
+        
+        Args:
+            x: Model input.
+            phi: Latent modulations.
 
-    def __init__(self, dim: int, device):
+        Returns:
+            y: Model output.
+        '''
+        for l in range(self.num_layers - 1):
+            phi_ = phi[l]
+            x = self.layers[l](x) + phi_
+        y = self.last_layer(x)
+        y = self.final_activation(y)
+        return y
+    # pylint: enable=arguments-differ
+
+
+class LatentModulation(eqx.Module):
+    '''Latent modulations for ModulatedSirenNets.
+    
+        Args:
+            shape: The shape of the modulation.
+            device: The device environment.
+    '''
+    latent_code: Array
+
+    def __init__(self, shape: tuple[int, ...] | int, device):
         super().__init__()
-        data = torch.zeros(dim, device = device,
-                           requires_grad = False)
-        self.latent_code = nn.Parameter(data = data)
+        data = jnp.zeros(shape=shape, device=device)
+        # Equinox will treat this as a parameter
+        self.latent_code = data
 
-    def forward(self):
-        return self.latent_code
 
-class Modulator(nn.Module):
-    def __init__(self, dim_in: int, dim_hidden:int, depth: int):
+class Modulator(eqx.Module):
+    '''Class for MLP-based modulations.
+    
+    Args:
+        key: jax.random.key(...)
+        in_features: input dimensions
+        out_features: output dimensions
+        num_layers: number of hidden layers
+    '''
+    num_layers: int
+    hidden_features: int
+    layers: list
+    in_features: int
+
+    def __init__(
+            self,
+            key: jax.random.key,
+            in_features: int,
+            hidden_features:int,
+            num_layers: int):
         super().__init__()
-        self.depth = depth
-        self.hidden = dim_hidden
-        self.layers = nn.ModuleList([])
-        for ind in range(depth):
+        self.num_layers = num_layers
+        self.in_features = in_features
+        self.hidden_features = hidden_features
+        self.layers = []
+        # Add hidden layers
+        for ind in range(num_layers):
             is_first = ind == 0
             # for skip connection
-            dim = dim_in if is_first else (dim_hidden + dim_in)
-            layer = nn.Sequential(nn.Linear(dim, dim_hidden),
-                                  nn.ReLU())
+            dim = in_features if is_first else (hidden_features + in_features)
+            key, _key = jax.random.split(key)
+            layer = eqx.nn.Linear(
+                key=_key,
+                in_features=dim,
+                out_features=hidden_features)
             self.layers.append(layer)
 
-    def forward(self, m):
-        x = m # set as first input
-        hiddens = x.new_empty((self.depth, self.hidden))
-        for l in range(self.depth - 1):
+    def __call__(self, x):
+        '''Forward pass through the model.
+        
+        Args:
+            x: modulator input
+        '''
+        hiddens = []
+        # set as first input
+        theta = x
+        for l in range(self.num_layers - 1):
             # pass through next layer in modulator
-            x = self.layers[l](x)
+            y = self.layers[l](x)
+            y = jax.nn.relu(y)
             # save layer output
-            hiddens[l] = x
+            hiddens.append(y)
             # concat with latent code for next step
-            x = torch.cat((x, m), dim = -1)
-        #
-        hiddens[-1] = self.layers[-1](x)
+            # NOTE: Does not change theta size after first loop
+            x = jnp.concatenate([y, theta], axis=-1)
+        y = self.layers[-1](x)
+        y = jax.nn.relu(y)
+        hiddens.append(y)
         return hiddens
 
-class ImplicitNeuralModule(nn.Module):
-    """ Implicit Neural Module
 
-    Arguments:
-        q_in: int, query dimension
-        out: int, output dimensions
-        hidden: int = 256, hidden dimensions (for theta and psi)
-        depth: int = 5, depth of theta, modulator is `depth` - 1
-    """
+class ImplicitNeuralModule(eqx.Module):
+    '''Implicit Neural Module
 
-    def __init__(self,
-                 q_in: int = 1,
-                 out: int = 1,
-                 hidden: int = 256,
-                 mod: int = 24,
-                 depth: int = 5,
-                 w0_initial:float=15.0,
-                 w0:float=1.0,
-                 c:float=6.0,
-                 sigmoid:bool = True) -> None:
+    Args:
+        theta: Siren network
+        psi: Modulation FC network
+    '''
+    hidden_features: int
+    mod: int
+    theta: ModulatedSirenNet
+    psi: Modulator
+
+    def __init__(self, theta: ModulatedSirenNet, psi: Modulator) -> None:
         super().__init__()
-        self.hidden = hidden
-        self.mod = mod
         # Siren Network - weights refered to as `theta`
         # optimized during outer loop
-        act = nn.Sigmoid if sigmoid else nn.Identity
-        self.theta = ModulatedSirenNet(q_in, hidden, out, depth,
-                                       w0 = w0, c = c,
-                                       w0_initial = w0_initial,
-                                       final_activation = act)
+        self.theta = theta
         # Modulation FC network - refered to as psi
         # psi is initialize with default weights
         # and is not optimized
-        self.psi = Modulator(mod, hidden, depth - 1)
+        self.psi = psi
+        self.hidden_features = theta.hidden_features
+        self.mod = psi.in_features
+        assert psi.hidden_features == theta.hidden_features
 
-    def forward(self, qs:Tensor, m: Tensor) -> Tensor:
+    def __call__(self, qs:Array, m: Array) -> Array:
+        '''Forward model call.
+
+        Args:
+            qs: Model (sirenet) input.
+            m: Modulator input.
+        '''
         phi = self.psi(m) # shift modulations
         return self.theta(qs, phi)
