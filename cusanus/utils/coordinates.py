@@ -1,4 +1,5 @@
-import torch
+# TODO: convert `torch` references to jax
+# import torch
 from cusanus.pytypes import *
 
 def grids_along_depth(ny : int, nxz : int,

@@ -3,73 +3,35 @@
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array
+import jax.random as jr
 
 
 class Sine(eqx.Module):
-    '''Sin activation function.
-    
-    Args:
-        w: Weight parameter (sin(w * x)).
-    '''
-    w: float
 
-    def __init__(self, w = 1.):
-        self.w = w
+    w0: float
+
+    def __init__(self, w0 = 1.):
+        self.w0 = w0
 
     def __call__(self, x):
-        return jnp.sin(self.w * x)
-
+        return jnp.sin(self.w0 * x)
 
 class Siren(eqx.Module):
-    '''A single sinusoidal (Siren) layer.
-
-    Args:
-        key: a JAX PRNG key
-        in_features: input dimensions.
-        out_features: output dimensions.
-        sine_weight: Sine weight parameter.
-        w_std: absolute bounds on initialization parameter distribution.
-        use_bias: flag for whether to include bias or not
-    '''
     linear: eqx.nn.Linear
-    sine_weight: float
+    bias: Array
 
-    def __init__(
-            self,
-            key,
-            in_features: int,
-            out_features: int,
-            w_std: float = 1.,
-            sine_weight: float = 1,
-            use_bias = True) -> None:
+    def __init__(self, dim_in:int, dim_out:int,
+                 w0:float = 1., w_std:float = 1.,
+                 bias = True, activation = True):
         super().__init__()
-        # PRNG keys for layer, weights, and bias
-        key_l, key_w, key_b = jax.random.split(key, 3)
-        self.linear = eqx.nn.Linear(
-            key=key_l,
-            in_features=in_features,
-            out_features=out_features,
-            use_bias=use_bias
-        )
+        self.linear = nn.Linear(dim_in, dim_out, bias = bias)
         # REVIEW
         # Initialization is important
-        new_weights = jax.random.uniform(
-            key=key_w,
-            shape=(out_features, in_features),
-            minval=-w_std,
-            maxval=w_std
-        )
-        self.linear = eqx.tree_at(lambda l: l.weight, self.linear, new_weights)
-        if use_bias:
-            new_bias = jax.random.uniform(
-                key=key_b,
-                shape=(out_features,),
-                minval=-w_std,
-                maxval=w_std
-            )
-            self.linear = eqx.tree_at(lambda l: l.bias, self.linear, new_bias)
-        self.sine_weight = sine_weight
+        nn.init.uniform_(self.linear.weight, a = -w_std, b = w_std)
+        if bias:
+            nn.init.uniform_(self.linear.bias, a = -w_std, b = w_std)
+        # REVIEW: get rid of conditional?
+        self.activation = Sine(w0) if activation else nn.Identity()
 
     def __call__(self, x):
         x =  self.linear(x)
